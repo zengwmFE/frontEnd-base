@@ -129,5 +129,41 @@ w3c:**在单词边界匹配的位置，单词字符后面或前面不与另一�
 会匹配当前数量词的最小值，什么意思呢？
 就是`+`是最小是匹配1个
 `*`匹配的最小的是0个
+**`+`**
 
-![](https://github.com/4lQuiorrA/frontEnd-base.git)
+![](https://github.com/4lQuiorrA/frontEnd-base/blob/master/image/regexp1.png)
+
+**`*`**
+
+![](https://github.com/4lQuiorrA/frontEnd-base/blob/master/image/regexp2.png)
+
+可以看到当前匹配到的索引值在`+`的时候，是它第一次匹配到`a`的时候也就是3
+在匹配`*`的时候，也就是第一个空，也就是索引值为0的时候
+
+**x(?=y)**
+
+当`x`后面紧跟着`y`的时候，才会匹配`x`
+![](https://github.com/4lQuiorrA/frontEnd-base/blob/master/image/regexp3.png)
+
+**x(?!y)**
+
+当`x`后面不是紧跟着`y`的时候，才会匹配`x`
+![](https://github.com/4lQuiorrA/frontEnd-base/blob/master/image/regexp4.png)
+
+**(x|y)**
+匹配`x`或者`y`
+c
+
+**x{n}**
+1. n必须是一个正整数。前面的模式`y`连续出现了n次时的匹配
+
+![](https://github.com/4lQuiorrA/frontEnd-base/blob/master/image/regexp5.png)
+
+**x{n,}**
+
+1. n是一个正整数。前面的模式x连续出现至少n次
+
+![](https://github.com/4lQuiorrA/frontEnd-base/blob/master/image/regexp6.png)
+
+**x{n,m}**
+2. n是
