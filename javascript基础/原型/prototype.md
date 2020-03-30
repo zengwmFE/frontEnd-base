@@ -1,4 +1,4 @@
-### Prototype
+### Prototype和原型链
 
 Javascript 中的对象都有一个特殊的`[[Prototype]]`内置属性，其实就是对其他对象的引用
 
@@ -19,7 +19,7 @@ myObject.a //2
 
 其实`for...in`遍历对象时和查找`[[Prototype]]`链相似
 
-####  [[Prototype]]的尽头
+####  `[[Prototype]]`的尽头
 
 > 所有的普通的`[[Prototype]]`链最终都会指向内置的`Object.prototype`
 
@@ -43,3 +43,4 @@ myObject.foo = "bar"
 1. 如果在`[[Prototype]]`链上存在`foo`的普通数据访问属性并且没有被标记为只读`(writable:false)`,那么它会直接在`myObject`中添加一个名为`foo`的新属性，他是一个屏蔽属性
 2. 如果在`[[Prototype]]`链上存在`foo`，但是它被标记为只读(`writable: false`)，那么就无法修改已有属性或者在`myObject`上创建`屏蔽属性`。如果在严格模式下，代码就会抛出错误。
 3. 如果在`[[Prototype]]`链上层存在`foo`，但是它是一个`setter`，那就一定会调用这个`setter`，`foo`不会被添加到`myObject`，也不会重新定义`foo`这个`setter`
+
