@@ -85,6 +85,8 @@ console.log('结束')
 2. 查看微任务队列中是否有可以执行的任务，有，则执行所有的微任务，否，重新执行下一个宏任务，如果产生了微任务，则将微任务注册到微任务队列中。
 3. 然后继续访问微任务队列是否有内容。重复这个过程
 
+例子：
+
 ```
 console.log('script start')
 
@@ -116,5 +118,9 @@ console.log('script end')
 // script start => async2 end => Promise => script end => async1 end=> promise1 => promise2 => setTimeout
 
 ```
+
+**async 和 await**
+
+> async 会隐式的返回一个`promise`,也就是说在 await 执行完之后，会往微任务队列内增加一个`微任务`
 
 ### Node 端事件循环
