@@ -79,7 +79,7 @@ console.log('结束')
 
 在针对于微任务和宏任务基本的调度应该是：
 
-!()[https://github.com/zengwmFE/frontEnd-base/blob/master/image/marmic.png]
+![](https://github.com/zengwmFE/frontEnd-base/blob/master/image/marmic.png)
 
 1. 从宏任务队列中，取出第一个任务执行，执行完成
 2. 查看微任务队列中是否有可以执行的任务，有，则执行所有的微任务，否，重新执行下一个宏任务，如果产生了微任务，则将微任务注册到微任务队列中。
@@ -124,3 +124,19 @@ console.log('script end')
 > async 会隐式的返回一个`promise`,也就是说在 await 执行完之后，会往微任务队列内增加一个`微任务`
 
 ### Node 端事件循环
+
+浏览器中有事件循环，`node`中也有，事件循环是`node`处理非阻塞`I/O`操作的机制，`node`中事件循环的实现是依靠的`libuv`引擎。
+
+**宏任务大概包括：**
+
+- setTimeout
+- setInterval
+- SetImmdidate
+- script整体代码
+- I/O操作
+
+**微任务包括**
+
+- process.nextTick(与普通的微任务有区别，在微任务队列之前执行)
+- new Promise().then等
+
