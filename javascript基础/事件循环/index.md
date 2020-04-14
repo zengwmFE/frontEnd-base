@@ -77,4 +77,44 @@ console.log('结束')
 - Async await
 - MutationObserver(HTML5 新特性)
 
+在针对于微任务和宏任务基本的调度应该是：
+
+!()[https://github.com/zengwmFE/frontEnd-base/blob/master/image/marmic.png]
+
+1. 从宏任务队列中，取出第一个任务执行，执行完成
+2. 查看微任务队列中是否有可以执行的任务，有，则执行所有的微任务，否，重新执行下一个宏任务，如果产生了微任务，则将微任务注册到微任务队列中。
+3. 然后继续访问微任务队列是否有内容。重复这个过程
+
+```
+console.log('script start')
+
+async function async1() {
+await async2()
+console.log('async1 end')
+}
+async function async2() {
+console.log('async2 end')
+}
+async1()
+
+setTimeout(function() {
+console.log('setTimeout')
+}, 0)
+
+new Promise(resolve => {
+console.log('Promise')
+resolve()
+})
+.then(function() {
+console.log('promise1')
+})
+.then(function() {
+console.log('promise2')
+})
+
+console.log('script end')
+// script start => async2 end => Promise => script end => async1 end=> promise1 => promise2 => setTimeout
+
+```
+
 ### Node 端事件循环
