@@ -1,0 +1,5 @@
+1. 简述一下作用域和作用域链
+2. 请说明`TypeError`和`ReferenceError`在编译过程中，出现得场景。
+3. 为什么javaScript代码要进行优化，优化点在什么地方
+4. JIT？在javaScript中编译和执行过程扮演的角色
+5. 简述下AST抽象语法树
