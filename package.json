@@ -1,0 +1,32 @@
+{
+  "name": "frontend-base",
+  "version": "1.0.0",
+  "description": "深知自己菜，开始从头开始学习基础前端知识",
+  "main": "index.js",
+  "dependencies": {
+    "@babel/polyfill": "^7.8.7",
+    "@babel/traverse": "^7.9.5",
+    "core-js": "^3.6.5"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.8.4",
+    "@babel/core": "^7.9.0",
+    "@babel/generator": "^7.9.5",
+    "@babel/plugin-transform-arrow-functions": "^7.8.3",
+    "@babel/preset-env": "^7.9.5"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "babel src -d lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zengwmFE/frontEnd-base.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zengwmFE/frontEnd-base/issues"
+  },
+  "homepage": "https://github.com/zengwmFE/frontEnd-base#readme"
+}
