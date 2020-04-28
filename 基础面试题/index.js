@@ -13,7 +13,7 @@ var aStatic = new Proxy(a, {
     return false
   },
   ownKeys: function (val) {
-    console.log(val)
+    console.log(val, '123')
     return Reflect.ownKeys(a)
   },
 })
