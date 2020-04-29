@@ -1,6 +1,6 @@
 ### Proxy 的定义
 
-> Proxy 对象用于定义基本操作的自定义行为（如属性查找、赋值、枚举、函数调用），用一句简短的话来说就说：当前对象的自带的功能，不足以满足当前业务要求，需要使用者拓展对象的能力
+> Proxy 对象用于定义基本操作的自定义行为（如属性查找、赋值、枚举、函数调用），用一句简短的话来说就说：当前对象的自带的功能，不足以满足当前业务要求，需要使用者拓展对象的能力.同时经常配合反射`Reflect`来使用
 
 ### Proxy 基本用法
 
@@ -16,7 +16,7 @@ new Proxy(target,handler)
 
 ### Proxy API
 
-- handler.getPrototypeOf() -> Object.getPrototypeOf()的陷阱
+1. handler.getPrototypeOf() -> Object.getPrototypeOf()的陷阱
 
 ```
 var arr = [1,2,3]
@@ -35,7 +35,7 @@ a:1
 Object.getPrototypeOf(proxy) // {a:1}
 ```
 
-- handler.setPrototypeOf() -> Object.setPrototypeOf 的陷阱
+2. handler.setPrototypeOf() -> Object.setPrototypeOf 的陷阱
 
 ```
 let testObject = {}
@@ -51,7 +51,7 @@ testObject = new Proxy(testObject, {
 Object.setPrototypeOf(testObject, testFun)
 ```
 
-- handler.isExtensible -> Object.isExtensible 的陷阱
+3. handler.isExtensible -> Object.isExtensible 的陷阱
 
 ```
 let testObj = {}
@@ -68,7 +68,7 @@ Object.isExtensible(testProxy)
 
 在这里，无法直接返回一个`primitive`值来作为`isExtensible`的展示结果。需要通过`Reflect`来反射出结果，当然之前的也可以通过`Reflect`来反射出结果来作为`Proxy`的返回值，这也是比较推荐的，作为获取内容的时候的返回值
 
-- handler.preventExtensions -> Object.preventExtensions 的陷阱
+4. handler.preventExtensions -> Object.preventExtensions 的陷阱
 
 ```
 let testObj = {}
@@ -85,7 +85,7 @@ console.log(Object.preventExtensions(testProxy))
 
 ```
 
-- handler.getOwnPropertyDescriptor -> Object.getOwnPropertyDescriptor 的陷阱
+5. handler.getOwnPropertyDescriptor -> Object.getOwnPropertyDescriptor 的陷阱
 
 ```
 let testObj = {
@@ -102,7 +102,7 @@ console.log(Object.getOwnPropertyDescriptor(testProxy, 'a'))
 
 ```
 
-- handler.defineProperty -> Object.defineProperty 的陷阱
+6. handler.defineProperty -> Object.defineProperty 的陷阱
 
 ```
 let testObj = {
@@ -129,7 +129,7 @@ console.log(
 
 自动生成了`value:1`
 
-- handler.has -> in 操作符的陷阱
+7. handler.has -> in 操作符的陷阱
 
 ```
 let testObj = {
@@ -148,13 +148,29 @@ let testProxy = new Proxy(testObj, {
 
 **注意，如果我`return:1`，当我打印的时候，他会将他转成 `Boolean`**
 
-- handler.get -> 属性读取的陷阱
+8. handler.get -> 属性读取的陷阱
 
-- handler.set -> 属性设置的陷阱
+9. handler.set -> 属性设置的陷阱
 
-- handler.deleteProperty -> delete 属性使用的陷阱
-- handler.ownKeys -> Object.getOwnPropertyNames 和 Object.getOwnPropertySymbols 方法的陷阱
-- handler.apply -> 函数调用的陷阱
+```
+var testObj = { a: 1 }
+var testProxy = new Proxy(testObj, {
+  set: function (target, key, value) {
+    Reflect.set(target, key, value)
+  },
+})
+
+testProxy.a = 2
+testProxy.b = 2
+console.log(testProxy, testObj)
+
+
+
+```
+
+10. handler.deleteProperty -> delete 属性使用的陷阱
+11. handler.ownKeys -> Object.getOwnPropertyNames 和 Object.getOwnPropertySymbols 方法的陷阱
+12. handler.apply -> 函数调用的陷阱
 
 ```
 function foo() {
@@ -170,11 +186,11 @@ let testProxy = new Proxy(foo, {
 testProxy() //2
 ```
 
-- handler.construct -> new 函数调用的陷阱
+13. handler.construct -> new 函数调用的陷阱
 
 ### 为什么要使用 Proxy
 
-可以使用`Proxy`来对 Object 的行为进行控制，同事不用失去实用性和简单性
+可以使用`Proxy`来对 Object 的行为进行控制，同时不用失去实用性和简单性
 
 ### Proxy 的应用场景
 
@@ -197,11 +213,63 @@ console.log(p[-2])
 console.log(p[-3])
 ```
 
-2. 私有属性
-   作为一个共识，一个变量增加了`_`的时候，可以被看作是一个私有属性
+2. 隐藏属性
+
+```
+var a = {
+  _b: 1,
+  c: 2,
+}
+
+// _b为私有属性，不能被外部所获取到，get ，无法获取property
+var aStatic = new Proxy(a, {
+  get: function (value, prop) {
+    console.log(value, prop)
+    if (prop.startsWith('_') || !(prop in value)) {
+      return undefined
+    } else {
+      return value[prop]
+    }
+  },
+  has: function (val, prop) {
+    return !prop.startsWith('_') && prop in val
+  },
+  ownKeys: function (val) {
+    console.log(val, Reflect.ownKeys(val))
+    let ownKeyLists = Reflect.ownKeys(val).filter(
+      (item) => !item.startsWith('_')
+    )
+    return ownKeyLists
+  },
+})
+
+console.log(aStatic.c)
+```
+
+3. 缓存
+   > 根据需要将对象包装为无效（和重新同步）的属性，每次要访问对象属性，都得重新获取，保护一些信息，如：银行卡号，余额，等等。
+
+```
+const cookieControl = (target, ttl = 60) => {
+  const createTime = Date.now()
+  const isExpired = () => Date.now() - createTime > ttl * 1000
+  return new Proxy(target, {
+    get: (obj, props) => (isExpired() ? undefined : Reflect.get(obj, props)),
+  })
+}
+
+let bankAccount = cookieControl({ money: 1000 }, 10)
+
+console.log(bankAccount.money)
+
+setTimeout(() => {
+  console.log(bankAccount.money)
+}, 10 * 1000)
 
 ```
 
-```
+4. 重载运算符
 
-### Proxy 和 defineProperty 的比较
+> 重载 has,in,new 方法
+
+5. 实现观察者模式
