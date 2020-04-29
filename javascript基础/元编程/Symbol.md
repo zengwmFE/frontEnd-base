@@ -155,4 +155,48 @@ console.log(concatArr)
 
 4. Symbol.unscopables -> 解决`with`
 
-5. Symbol.match
+5. Symbol.match 允许可以重写 String.prototype.match
+
+match 方法接受`string`或者正则，这样可以重写成符合对象的
+
+6. Symbol.replace -> String.prototype.replace
+
+```
+class MyClass{
+  [Symbol.replace](){
+
+  }
+}
+```
+
+7. Symbol.search -> String.prototype.search
+
+```
+class MyClass{
+  [Symbol.search](){
+
+  }
+}
+```
+
+8. Symbol.split -> String.prototype.split
+
+```
+class MyClass{
+  [Symbol.split](){
+
+  }
+}
+```
+
+9. toPrimitive 对象转基础对象会调用的一个函数,优先级要远远高于`valueOf`和`toString`
+
+10. toStringTag Symbol 内置的一个方法
+
+```
+var a = Symbol('a')
+a.toString() // 'Symbol'
+```
+
+如果一个`Symbol`直接使用 toString，它无法转换成对应的`[Object xxx]`这种形式的
+所以`Symbol`使用了一个`toStringTag`方法，可以让我们自定义`Symbol`的`toString`的格式
