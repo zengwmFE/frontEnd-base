@@ -200,3 +200,33 @@ a.toString() // 'Symbol'
 
 如果一个`Symbol`直接使用 toString，它无法转换成对应的`[Object xxx]`这种形式的
 所以`Symbol`使用了一个`toStringTag`方法，可以让我们自定义`Symbol`的`toString`的格式
+
+```
+class MySymbol{
+  get [Symbol.toStringTag](){
+    return 'doin'
+  }
+}
+
+var mySymbol = new MySymbol()
+
+Object.prototype.toString.call(mySymbol) // [object doin]
+```
+
+**注意：使用`Symbol.toStringTag`的时候，返回值不能为字符串之外的内容，否则就无法得到想要的结果。！！！**
+
+```
+var a = {
+  get [Symbol.toStringTag]() {
+    return 1
+  },
+}
+console.log(Object.prototype.toString.call(a)) //[object Object]
+
+var a = {
+  get [Symbol.toStringTag]() {
+    return '1'
+  },
+}
+console.log(Object.prototype.toString.call(a)) //[object 1]
+```
