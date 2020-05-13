@@ -35,6 +35,8 @@ node --max-new-space-size=2048 xxx.js
 
 `V8`把内存分成了两部分进行处理-新生代内存和老生代内存，顾名思义，新生代就说临时分配的内存，存活时间短，老生代是常驻内存，存活时间长。`V8`的堆内存就相当于两个内存之和。
 
+![新生代和老生代内存分配](https://github.com/zengwmFE/frontEnd-base/blob/master/image/heap.png)
+
 两种不同得内存，`v8`采用了不同得回收策略，来针对不同得场景做针对性优化。
 
 ### 老生代内存回收
