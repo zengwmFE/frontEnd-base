@@ -68,6 +68,12 @@ content 的参数值有：`all,none,index,onindex,follow,nofollow`，默认值�
 
 该属性类似于`HTTP`头部信息
 
+```
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+```
+
+将所有的`http`请求升级成`Https`请求
+
 ## HTML5 新增
 
 ### viewport
