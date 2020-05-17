@@ -228,7 +228,7 @@ myPromise.race = function (promiselist) {
     if (promiselist.length) {
       resolve([]);
     }
-    promiselist.forEach((promiseItem, index) => {
+    promiselist.forEach((promiseItem) => {
       myPromise.resolve(promiseItem).then(
         (data) => {
           resolve(data);
