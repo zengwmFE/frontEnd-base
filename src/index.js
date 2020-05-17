@@ -1,9 +1,21 @@
 var a = [1, 2, 3]
 
-var b = [4, 5, 6]
+a[Symbol.iterator] = function () {
+  let i = 0
 
-var c = [7, 8, 9]
+  return {
+    next: function () {
+      var done = i >= this.length
+      console.log(done)
+      var value = !done ? this[++i] : undefined
+      return {
+        done,
+        value,
+      }
+    },
+  }
+}
 
-b[Symbol.isConcatSpreadable] = false
-var concatArr = a.concat(b, c)
-console.log(concatArr)
+for (let item of a) {
+  console.log(item)
+}
