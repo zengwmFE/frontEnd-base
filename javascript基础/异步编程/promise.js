@@ -37,7 +37,8 @@ function myPromise(fn) {
   try {
     fn(resolve, reject)
   } catch (err) {
-    reject(error)
+    console.log(err)
+    reject(err)
   }
 }
 
@@ -200,12 +201,13 @@ myPromise.all = function (promiselist) {
     var count = 0
     var result = []
     var length = promiselist.length
+    var _this = this
     if (length === 0) {
       return resolve([])
     }
     promiselist.forEach((promise, index) => {
       // al利用resolve中如果传入的参数是promise的实例的话，它就会直接返回这个参数，这样then其实接的是promise的resolve的值
-      MyPromise.resolve(promise).then(
+      myPromise.resolve(promise).then(
         function (data) {
           count++
           result[index] = data
@@ -261,6 +263,9 @@ myPromise.prototype.finally = function (fn) {
     }
   )
 }
-myPromise.reject(1).then((data) => {
-  console.log(data)
-})
+
+myPromise
+  .all([new myPromise.resolve(1), new myPromise.resolve(2)])
+  .then((data) => {
+    console.log(data)
+  })

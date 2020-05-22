@@ -8,20 +8,22 @@ function myPromise(fn) {
   this.reason = ''
   this.fullfilledCallbacks = []
   this.rejectCallbacks = []
+  let _this = this
   function resolve(val) {
-    if (this.status !== PENDING) return
-    this.status = FULFILLED
-    this.value = val
-    this.fullfilledCallbacks.forEach((callback) => {
-      callback()
+    if (_this.status !== PENDING) return
+    _this.status = FULFILLED
+    _this.value = val
+    console.log(_this.fullfilledCallbacks)
+    _this.fullfilledCallbacks.forEach((callback) => {
+      callback(_this.value)
     })
   }
   function reject(rea) {
-    if (this.status !== PENDING) {
-      this.status = REJECT
-      this.reason = rea
-      this.rejectCallbacks.forEach((callback) => {
-        callback()
+    if (_this.status !== PENDING) {
+      _this.status = REJECT
+      _this.reason = rea
+      _this.rejectCallbacks.forEach((callback) => {
+        callback(_this.reason)
       })
     }
   }
@@ -73,22 +75,22 @@ myPromise.prototype.then = function (resolveCallback, rejectCallback) {
   if (this.status === PENDING) {
     // 防止then的调用时期，状态没有发生更改
     Promise1 = new myPromise((resolve, reject) => {
-      this.fullfilledCallbacks.push(function () {
+      this.fullfilledCallbacks.push(function (value) {
         setTimeout(() => {
           if (typeof resolveCallback !== 'function') {
-            resolve(that.value)
+            resolve(value)
           } else {
-            var x = resolveCallback(that.value)
+            var x = resolveCallback(value)
             resolvePromise(Promise1, x, resolve, reject)
           }
         })
       })
-      this.rejectCallbacks.push(function () {
+      this.rejectCallbacks.push(function (reason) {
         setTimeout(() => {
           if (typeof rejectCallback !== 'function') {
-            reject(that.reason)
+            reject(reason)
           } else {
-            var x = rejectCallback(that.reason)
+            var x = rejectCallback(reason)
             resolvePromise(Promise1, x, resolve, reject)
           }
         })
@@ -113,6 +115,7 @@ function resolvePromise(promise, x, resolve, reject) {
     } catch (err) {
       reject(err)
     }
+    console.log('resolve')
     then.call(
       x,
       function (y) {
@@ -126,3 +129,94 @@ function resolvePromise(promise, x, resolve, reject) {
     resolve(x)
   }
 }
+
+myPromise.resolve = function (value) {
+  if (value instanceof myPromise) {
+    return value
+  }
+  return new myPromise((resolve) => {
+    resolve(value)
+  })
+}
+
+myPromise.reject = function (error) {
+  if (error instanceof myPromise) {
+    return error
+  }
+  return new myPromise((resolve, reject) => {
+    reject(error)
+  })
+}
+
+myPromise.all = function (promiseList) {
+  return new myPromise((resolve, reject) => {
+    let valueList = []
+    let score = 0
+    promiseList.forEach((list) => {
+      if (list instanceof myPromise) {
+        list.then(
+          (data) => {
+            if (score < promiseList.length - 1) {
+              valueList.push(data)
+              score++
+            } else {
+              console.log(valueList, 'valueList')
+              resolve(valueList)
+            }
+          },
+          (error) => {
+            reject(error)
+          }
+        )
+      }
+    })
+  })
+}
+
+myPromise.race = function (promiseList) {
+  return new Promise((resolve, reject) => {
+    promiseList.forEach((promise) => {
+      promise.then(
+        (data) => {
+          resolve(data)
+        },
+        (error) => {
+          reject(error)
+        }
+      )
+    })
+  })
+}
+
+myPromise.prototype.catch = function () {
+  return this.then(null, (error) => {
+    reject(error)
+  })
+}
+
+myPromise.prototype.finally = function (fn) {
+  return this.then(
+    (data) => {
+      return new myPromise(fn).then(() => {
+        return data
+      })
+    },
+    (error) => {
+      return new myPromise(fn).then(() => {
+        return error
+      })
+    }
+  )
+}
+
+Promise.all([new myPromise.resolve({ a: 1 }), new myPromise.resolve(2)]).then(
+  (data) => {
+    console.log(data, 'allPromise')
+  }
+)
+
+Promise.race([new myPromise.resolve({ a: 1 }), new myPromise.resolve(2)]).then(
+  (data) => {
+    console.log(data, 'racePromise')
+  }
+)
