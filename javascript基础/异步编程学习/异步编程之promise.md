@@ -45,58 +45,6 @@ console.log(error)
 
 代码瞬间清晰多了。但`promise`的内容可能是拒绝的而不是完成的，拒绝值和完成值的`promise`不一样,而拒绝值，通常被称为`rejection reason`,可能是程序逻辑直接设置的，也可能是从运行异常隐式得出的值。
 
-### PromiseApi
-
-#### new Promise
-
-> 有启示性的构造函数，必须和`new`一起调用，并且必须提供一个函数回调，这个回调是同步的或者叫立即执行的。
-
-接受两个函数：`resolve`和`reject`,但`resolve`也可能完成`promise`，也可能拒绝，要根据传入的参数而定：
-
-- 如果**传给 resolve 的是一个非`Promise`，非`thenable`的立即值，这个`promise`就会用这个值完成**
-- 如果传给`resolve`的是一个`Promise`、`thenable`的值，这个值就会被递归所展开，并且`promise`将取用最终决议值或状态
-
-这个时候会调用`catch`回调
-
-```
-new Promise((resolve,reject)=>{
-
-resolve(Promise.reject(1))
-}).then(data=>{
-    console.log(data)
-}).catch((error)=>{
-console.log(1,error) //1,1
-})
-```
-
-#### `Promise.resolve` 和 `Promise.reject()`
-
-> 创建一个已被拒绝的`Promise`的快捷方式使用的：`Promise.reject`,它等价于：`new Promise((resolve,reject)=>{ reject() })`,创建一个已完成的`Promise`，使用方法：`Promise.resolve()`
-
-#### then 和 catch
-
-> then 接受一个或两个参数，第一个用于完成回调，第二个用于拒绝回调，
-> catch 接受一个拒绝回调作为参数，并自动替换默认完成回调
-
-#### Promise.all([promise1,promise2,promise3...])
-
-> 以最慢的一方作为基准执行回调，当最后一个`promise`执行完，就会执行回调
-
-**适合的场景**
-
-> 一些游戏类的素材比较多的应用，打开网页时，预先加载需要用到的各种资源如图片、`flash`以及各种静态文件。所有的都加载完后，我们在进行页面的初始化
-
-### Promise.race([promise1,promise2,promise3])
-
-> `Promise.race([..])`协调多个并发`Promise`的运行，并假定所有的`Promise`都需要完成，只想响应“第一个跨过终点线的`Promise`”,然后抛弃其他的`Promise`，被称为竞态
-
-- `Promise.race`也接受单个数组参数，这样的话，肯定是列表的第一个成功
-- `Promise.race`至少需要一个`promise`参数，如果传入一个空数组，`race`是永远不会决议的，而不是立即发生决议。因为`Promise`的实现要比`ES6 Promise`提出要早，没办法遗留了这个问题。所以永远不要传递一个空数组
-
-#### finally
-
-> 被丢弃和忽略的`promise`最终会进行的回调
-
 ### Promise 局限性
 
 #### 顺序错误处理
@@ -137,3 +85,22 @@ p.catch(handleErrors)
 #### Promise 性能
 
 > 把基本的基于回调的异步任务链与`Promise`链中需要移动的部分数量进行比较。很显然`Promise`进行的动作要多一些，这自然意味着它也会稍微慢一些。
+
+### Promise 凭什么消灭了回调地狱
+
+#### 什么是回调地狱
+
+1. 多层嵌套导致的阅读困难
+2. 每个异步任务都会有 2 种可能行（成功或者失败），每次都要处理任务执行结束后的状态。
+
+#### 解决方法
+
+- 回调函数延迟绑定
+- 返回值穿透
+- 错误冒泡
+
+1. 回调函数不是直接在`promise`内部声明的，而是在`then`方法传入的。也就是`回调函数延迟绑定`
+2. 可以在`then`方法内部再次`return promise`作为下一个 then 的回调，可以实现将第二个执行的异步任务的返回值，传入下一个`then方法`
+3. 错误冒泡，`promise`可以将任意时候的未自行捕捉的错误一直传到`catch`方法内。
+
+### promise 为什么要引入微任务
