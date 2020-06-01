@@ -2,6 +2,7 @@
  * 防抖：
  * 定义：你尽管触发事件，但是我在一定在事件触发后的后的n秒才会去执行这个函数，
  * 如果在此期间又触发了这个事件，那么以新的事件为主
+ * 可以扩展
  */
 function debounce(fn, wait, imm = false) {
   let timer = null
@@ -11,11 +12,13 @@ function debounce(fn, wait, imm = false) {
     let ret = ''
     if (timer) clearTimeout(timer)
     if (imm) {
-      ret = fn.apply(this, arguments)
+      var callnow = !timer
+
+      ret = fn.apply(context, arguments)
       imm = false
     } else {
       setTimeout(() => {
-        fn.apply(this, arguments)
+        fn.apply(context, arguments)
       }, wait)
     }
     return ret
