@@ -4,23 +4,25 @@
  * 如果在此期间又触发了这个事件，那么以新的事件为主
  * 可以扩展
  */
-function debounce(fn, wait, imm = false) {
-  let timer = null
-  return function () {
-    let context = this
-    let arg = arguments
-    let ret = ''
-    if (timer) clearTimeout(timer)
-    if (imm) {
-      var callnow = !timer
 
-      ret = fn.apply(context, arguments)
-      imm = false
+function debounce(fn, wait, imm = false) {
+  let timer = null;
+  return function () {
+    let context = this;
+    let arg = arguments;
+    let ret = "";
+    if (timer) clearTimeout(timer); // 重新即时
+    if (imm) {
+      var callnow = !timer;
+      timer = setTimeout(function () {
+        timer = null;
+      }, wait);
+      if (callnow) ret = fn.apply(context, arguments);
     } else {
       setTimeout(() => {
-        fn.apply(context, arguments)
-      }, wait)
+        fn.apply(context, arguments);
+      }, wait);
     }
-    return ret
-  }
+    return ret;
+  };
 }
