@@ -172,7 +172,8 @@ myPromise.all = function (promiseList) {
     })
   })
 }
-
+// 1. 接受一个promise<arr:Promise>
+myPromise.allSettled = function(){}
 myPromise.race = function (promiseList) {
   return new Promise((resolve, reject) => {
     promiseList.forEach((promise) => {
