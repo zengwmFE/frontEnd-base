@@ -1,5 +1,7 @@
 // 用 JavaScript 实现一个标准的排序算法(快排、冒泡、选择排序)，对某个数字数组进行由低到高的排序？介绍冒泡排序、选择排序，说说冒泡排序如何优化
 
+
+// ![](https://github.com/zengwmFE/frontEnd-base/blob/master/image/fuzadu.png)
 /**
  * 
  * 稳定：如果a原本在b前面，而a=b，排序之后a仍然在b的前面； 不稳定：如果a原本在b的前面，而a=b，排序之后a可能会出现在b的后面；
@@ -292,8 +294,21 @@ console.log(quickSort(arr2))
  * 
  * 个人理解：
  * 将子树中的最大值和父节点进行交换，直到顶点的值是最大的，然后，将定点值和树最后的值（右树最右端的叶子节点（如果有））进行交换
+ * 
+ * 时间复杂度
+ * 最好，最差，平均：O(nlogn)
  */
+// 过程图
+// ![](https://github.com/zengwmFE/frontEnd-base/blob/master/image/heapSort.png)
 
+var len;    // 因为声明的多个函数都需要数据长度，所以把len设置成为全局变量
+
+function buildMaxHeap(arr) {   // 建立大顶堆
+    len = arr.length;
+    for (var i = Math.floor(len/2-1); i >= 0; i--) {
+        heapify(arr, i);
+    }
+}
  // 交换两个节点
  function heapify(arr, i) {     // 堆调整
     var left = 2 * i + 1,
@@ -322,11 +337,164 @@ function swap(arr, i, j) {
 
 function heapSort(arr) {
     buildMaxHeap(arr);
-
+    // 最大值和最右边的树进行交换，同时将数组原本指向最后一个位置的指针向前一格，减一
     for (var i = arr.length-1; i > 0; i--) {
         swap(arr, 0, i);
         len--;
         heapify(arr, 0);
+    }
+    return arr;
+}
+
+
+// 计数排序
+
+/**
+ * 
+ * 计数排序的核心在于将输入的数据值转化为键存储在额外开辟的数组空间中，作为一种线性时间复杂度的排序，计数排序要求输入的数据必须是有确定范围的整数
+ * 算法的实现：
+ * 1. 找出待排序数组的中的最大和最小值
+ * 2. 统计数组中每个值为i的元素出现的次数，存入数组c的第i项
+ * 3. 对所有的计数进行累加（从C中的第一个元素开始，每一项和前一项相加）
+ * 4. 反向填充目标数组，将每个元素i放到新数组的第C(i)项，每放一个元素就将C(i)减去1
+ * 
+ * 时间复杂度
+ * 最好，最差，平均复杂度：O(n+k)
+ * 
+ * 空间复杂度：
+ * O(k)
+ */
+
+function countSort(arr,maxValue){
+    let bucket = new Array(maxValue+1),
+    bucketLen  = maxValue+1,
+    len = arr.length,
+    sortIndex = 0
+    for(let i =0;i<len;i++){
+        if(!bucket[arr[i]]){
+            bucket[arr[i]] = 0
+        }
+        bucket[arr[i]]++
+    }
+    for(let j = 0;j<bucketLen;j++){
+        while(bucket[j]>0){
+            arr[sortIndex++] = j;
+            bucket[j]--
+        }
+    }
+    return arr
+}
+
+// 桶排序
+/**
+ * 1. 桶排序是计数排序的升级版。它利用了函数的映射关系，高效与否的关键就在于这个映射函数的确定。为了使桶排序更加高效，我们需要做到这两点
+ *      - 在额外的空间充足外，尽量增大桶的数量
+ *      - 使用的映射函数能够将输入的N个数据均匀的分配到k个桶中
+ * 对于桶排序，选择何种比较排序算法对于性能的影响至关重要
+ * 最快
+ * 1. 当输入的数据可以均匀的分配到每一个桶中
+ * 最慢：
+ * 2. 输入的数据被分配到同一个桶中
+ * 
+ * 排序的步骤
+ * 1. 将数据均匀的分配给每个桶中
+ * 2. 对每个桶中的数据进行排序，然后进行组合
+ * 
+ * 
+ * 时间复杂度：
+ * 最好：O(n+k)
+ * 最差：O(n^2)
+ * 平均：O(n+k)
+ * 
+ * 空间复杂度：
+ * O(n+k) // 出现了不定数的桶
+ */
+
+ function bucketSort(arr,bucketSize){
+    if(arr.length===0) return arr
+    let i;
+    var minValue = arr[0];
+    var maxValue = arr[0];
+    for(i=1;i<arr.length;i++){
+        if(arr[i]<minValue){
+            minValue = arr[i]
+        }else if(arr[i]>maxValue){
+            maxValue = arr[i]
+        }
+    }
+    
+
+    // 初始化桶
+    var DEFAULT_BUCKET_SIZE = 5;
+    bucketSize = bucketSize | DEFAULT_BUCKET_SIZE
+
+    // 得到桶的数量
+    var bucketCount = Math.floor((maxValue-minValue)/bucketSize)+1
+    var buckets = new Array(bucketCount)
+    // 得到桶容器
+    for(i = 0;i<buckets.length;i++){
+        buckets[i] = []
+    }
+    // 放入数据
+    for(i=0;i<arr.length-1;i++){
+        buckets[Math.floor((arr[i]-minValue)/bucketSize)].push(arr[i])
+    }
+    // 原数据清空
+    arr.length = 0
+    // 桶内数据排序，组合
+    for (i = 0; i < buckets.length; i++) {
+        heapSort(buckets[i]);                      // 对每个桶进行排序，这里使用了插入排序
+        for (var j = 0; j < buckets[i].length; j++) {
+            arr.push(buckets[i][j]);                      
+        }
+    }
+
+    return arr;
+ }
+
+ // 基数排序
+ /**
+  * 概念：基数排序是一种非比较型整数排序算法，其原理是将整数按位数切割成不同的数字，然后按每个位数分别比较，由于整数也可以表达字符串（比如名字或日期）和特定格式的浮点数
+  * 所以基数排序也不是只能使用于整数
+  * 
+  * 1. 先找到个位去查找当前值应该存在的位置，然后将该数字放到对应的基数项上
+  * 2. 将排序好的值顺序拿出
+  * 3. 然后按照十位排序，然后放到对应的位置
+  * 4. 将按照顺序的数组拿出，
+  * 动图示意
+  * ![](https://github.com/zengwmFE/frontEnd-base/blob/master/image/radixSort.gif)
+  * 
+  * 时间复杂度：
+  * 最好，最差，平均情况：O(n*k)
+  * 
+  * 空间复杂度：
+  * O(n+k)
+  * 
+  */
+
+//LSD Radix Sort
+var counter = [];
+function radixSort(arr, maxDigit) {
+    var mod = 10;
+    var dev = 1;
+    for (var i = 0; i < maxDigit; i++, dev *= 10, mod *= 10) {
+        for(var j = 0; j < arr.length; j++) {
+            var bucket = parseInt((arr[j] % mod) / dev); // 得到比较的数
+            if(counter[bucket]==null) {
+                counter[bucket] = [];
+            }
+            // 放入对应的基数上面
+            counter[bucket].push(arr[j]);
+        }
+        var pos = 0;
+        for(var j = 0; j < counter.length; j++) {
+            var value = null;
+            if(counter[j]!=null) {
+                while ((value = counter[j].shift()) != null) {
+                      arr[pos++] = value;
+                }
+          }
+        }
     }
     return arr;
 }
