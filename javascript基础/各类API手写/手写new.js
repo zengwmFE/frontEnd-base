@@ -1,4 +1,4 @@
-```
+
 function myNew(parentClass) {
   var newObject = {}
   Object.setPrototypeOf(newObject,parentClass.prototype)
@@ -12,4 +12,4 @@ return 1
 
 var a = myNew(testClass)
 console.log(a)
-```
+
