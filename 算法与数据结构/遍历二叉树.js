@@ -3,9 +3,11 @@ let data2 = []
 let data3 = []
 function treeNode(data) {
   this.data = data
+  this.leftChild = null
+  this.rightChild = null
 }
-treeNode.prototype.leftChild = null
-treeNode.prototype.rightChild = null
+// treeNode.prototype.leftChild = null
+// treeNode.prototype.rightChild = null
 function createBinaryTree(inputList) {
   if (!(inputList && inputList.length)) return null
   let node = new treeNode(inputList)
