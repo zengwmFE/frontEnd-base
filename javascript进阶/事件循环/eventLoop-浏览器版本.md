@@ -123,20 +123,3 @@ console.log('script end')
 
 > async 会隐式的返回一个`promise`,也就是说在 await 执行完之后，会往微任务队列内增加一个`微任务`
 
-### Node 端事件循环
-
-浏览器中有事件循环，`node`中也有，事件循环是`node`处理非阻塞`I/O`操作的机制，`node`中事件循环的实现是依靠的`libuv`引擎。
-
-**宏任务大概包括：**
-
-- setTimeout
-- setInterval
-- SetImmdidate
-- script整体代码
-- I/O操作
-
-**微任务包括**
-
-- process.nextTick(与普通的微任务有区别，在微任务队列之前执行)
-- new Promise().then等
-

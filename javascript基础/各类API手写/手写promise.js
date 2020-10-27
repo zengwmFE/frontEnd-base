@@ -173,7 +173,44 @@ myPromise.all = function (promiseList) {
   })
 }
 // 1. 接受一个promise<arr:Promise>
-myPromise.allSettled = function(){}
+// 2. 
+myPromise.allSettled = function(promiseList){
+  return myPromise((resolve)=>{
+    if(typeof promiseList !==object) throw new Error('TypeError')
+    const pLength = promsieList.length
+    const ret = []
+    let pCount = 0
+
+    if(!pLength) return resolve(ret)
+    for(var i=0;i<pCount;i++){
+        (function(i){
+          let activePromise = myPromise.resolve(promiseList[i])
+          activePromise.then(result=>{
+            pCount++
+            // 保存到返回结果中
+            result[i] = {
+              type: 'fulfilled',
+              value: result
+            }
+            if(pCount===pLength){
+              resolve(result)
+            }
+          },reason=>{
+            pCount++
+            // 保存到返回结果中
+            result[i] = {
+              type: 'rejected ',
+              value: reason 
+            }
+            if(pCount===pLength){
+              resolve(result)
+            }
+          })
+        })(i)
+    }
+
+  })
+}
 myPromise.race = function (promiseList) {
   return new Promise((resolve, reject) => {
     promiseList.forEach((promise) => {

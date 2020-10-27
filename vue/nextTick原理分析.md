@@ -1,10 +1,13 @@
 ## nextTick 原理分析
-
 **官方介绍:**
 
-> `Vue`异步执行`DOM`更新。只要观察到数据变化，`Vue`将开启一个队列，并缓冲在同一事件循环中发生的所有数据改变。如果同一个`watcher`被多次触发，只会被推入到队列中一次。这种在缓冲时去除重复数据对于避免不必要的计算和`DOM`操作上非常重要。然后，在下一个的事件循**tick**中，`Vue`刷新队列并执行实际 (已去重的) 工作。`Vue`在内部尝试对异步队列使用原生的`Promise.then`和`MessageChannel`，如果执行环境不支持，会采用 `setTimeout(fn, 0)`代替。
+> `Vue`异步执行`DOM`更新。只要观察到数据变化，`Vue`将开启一个队列，并缓冲在同一事件循环中发生的所有数据改变。
 
-### 作用
+提出问题：
+1. `nextTick`是怎么监听到`DOM`数据发生了改变？才能获取到这个数据的！
+2. 多次操作对同一个数值，进行操作，会多次更改吗？
+
+### 源码
 
 > `nextTick`用于延迟执行回调函数。可以看到，最多接收 2 个参数.当`cb`不存在的时候，会返回一个`Promise`实例，让`nextTick`可以使用`then`
 
@@ -104,9 +107,28 @@ Vue.$nextTick().then(()=>{
 
 #### 调用 timerFunc
 
+1. 优先使用原生`Promise`
+2. 在判断`MutationObserver`
+3. 然后判断`setImmdiate`
+4. 最后使用`setTimeout`
+
+首先我们知道，在这里面，`Promise`和`MutationObserver`属于`micotask`而`setImmdiate`和`setTimeout`属于`macrotask`的范畴
+
+源码介绍到这里，行数比较少，并没有这里对`DOM`获取更改，有实际性代码展示，所以问题并没有解决，**得从`VUE`源码来找到`nextTick`怎么监听`DOM`数据的变化，从而获取到新数据的，并且怎么解决多次改变数据，产生的副作用的**,首先我们来看一下`nextTick`的使用情景
+
+1. 在`beforeCreate`或者`Create`生命周期要对`DOM`进行操作，在这两个周期可以知道，`DOM`还没有被挂载数据甚至还没有初始化`DOM`，所以在这里进行`DOM`操作是不太好的，这是需要将`DOM`放到`this.$nextTick`
+2. 修改数据后，及时获取`DOM`的数据
+
+
+
+#### 修改了数据
+
 ```
-if (!pending) {
-    pending = true
-    timerFunc()
-}
+this.newValue = 'this is a new Value'
+this.$nextTick(()=>{
+  console.log(xxx.getElementById('#id').innerHTML)
+})
 ```
+1. 使用`setter`,通知订阅了`newValue`属性的所有的`watcher`
+2. `watcher`收到通知，接着把自己放入到待更新的数组
+2. 执行`nextTick(flushSchedulerQueue)`,将`flushSchedulerQueue`存到`nextTick`中的`callbacks`
