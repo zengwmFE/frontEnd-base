@@ -1,18 +1,24 @@
-## webpack流程分析
+## webpack 流程分析
+
 阅读本章的时候，最好要对于`tapable`的知识有所了解，`webpack`使用了大量钩子来实现构建流程
+
 ### 1. 项目入口文件
+
 **package.json**
+
 > 在阅读源码的时候，在`package.json`中的`main`字段中可以知道整个库的入口文件是那里
 
 **`"main": "lib/index.js"`**
+
 ```
 get webpack() {
 		return require("./webpack");
 },
 ```
+
 所以真正的入口文件是`lib/webpack.js`
 
-### 2. 初始化options
+### 2. 初始化 options
 
 ```
 compiler = createCompiler(options);
@@ -45,17 +51,17 @@ const createCompiler = rawOptions => {
 	return compiler;
 };
 ```
+
 在这里`createCompiler`做了：
 
 1. 执行了`NodeEnvironmentPlugin`,触发了`beforeRun`钩子，清除了磁盘
 2. 将`options`内的`plugin`内的所有的事件流都绑定到`webpack`事件流上
 3. `WebpackOptionsApply`将所有的配置的`options`参数都转换成合适的`webpack`内部插件,如：
 
-
-> externals转换成：ExternalsPlugin    splitChunks转换成：SplitChunksPlugin
-
+> externals 转换成：ExternalsPlugin splitChunks 转换成：SplitChunksPlugin
 
 在`webpackOptionsApply`中调用了`new EntryOptionPlugin().apply(compiler)`
+
 ```
 compiler.hooks.entryOption.tap("EntryOptionPlugin", (context, entry) => {
 			if (typeof entry === "function") {
@@ -78,6 +84,7 @@ compiler.hooks.entryOption.tap("EntryOptionPlugin", (context, entry) => {
 		return true;
 });
 ```
+
 在`entryOption`中，绑定`EntryOptionPlugin`的钩子，并在回调中，将`webpack.config.js`中的`entry`转化成对应的的`DynamicEntryPlugin`或者`EntryPlugin`
 
 在`DynamicEntryPlugin`和`EntryPlugin`中`apply`方法中，向`make`的钩子上挂载了一个事件
@@ -98,7 +105,8 @@ compiler.hooks.entryOption.tap("EntryOptionPlugin", (context, entry) => {
 4. 初始化`compiler`
 
 结束后调用`compiler.run`，开始启动编译
-###  3. run执行编译
+
+### 3. run 执行编译
 
 ```
 const run = () => {
@@ -111,8 +119,10 @@ const run = () => {
 	});
 };
 ```
+
 1. 在这里触发`beforeRun`钩子的触发，
-2. 触发`run`钩子，最后执行`this.compile(onCompiled)`，这里是一切的源头，一切“罪恶”的根源🐶，在这里贴上源码：
+2. 触发`run`钩子，最后执行`this.compile(onCompiled)`，这里是一切的源头，一切“罪恶”的根源 🐶，在这里贴上源码：
+
 ```
 newCompilation(params) {
 		const compilation = this.createCompilation();
@@ -150,17 +160,21 @@ compile(callback) {
 		});
 	}
 ```
+
 开文提到过，`webpack`是基于`tapable`的，在这里可以看到
+
 ```
 beforeCompile->compile->make->finishMake->finish->seal->afterCompile
 ```
-这样执行顺序，那我们就看着一路往下走🌹：
+
+这样执行顺序，那我们就看着一路往下走 🌹：
 
 这里在提一句:
 
 这里的`newCompilationParams`是非常重要的，它返回了两个工厂函数的实例化对象:`NormalModuleFactory`和`ContextMouduleFactory`;以及调用了`this.newCompilation`，全局查找之后，我们可以知道，`hook.thisCompilation`以及`hooks.compilation`都是在每一个`plugin`的`apply`方法下进行了注册，所以这个这个方法是通知每个相关插件在`make`前阶段需要做的操作，然后得到了一个`compilation`的新实例以便接下来触发的所有钩子都能使用到这个实例
 
-### 4. make依赖分析
+### 4. make 依赖分析
+
 在这里对`make`这个主要的流程进行分析，但是这个`make`在这里仅仅是一个触发的地方，需要在`webpack`找到它注册的位置。
 首先我们来看看，一个基本的`tapable`是如何执行的
 
@@ -189,14 +203,17 @@ hook.callAsync('b',function(error){
     console.log('响应内容')
 })
 ```
+
 当执行了`callAsync`，所有之前已经被注册的`tap`都会被依次执行。我们知道了，只要是在`make`阶段的被注册的事件都会被调用。这就用到了我们刚才在`entryOptions`提到的那些了
 
 我们可以看到所有的`make`钩子绑定的事件主要调用的有
+
 1. `addEntry`添加入口
-2. `createDependency`   构建依赖
-3. `addModuleChain`  模块链生成
+2. `createDependency` 构建依赖
+3. `addModuleChain` 模块链生成
 
 #### addEntry
+
 ```
 	_addEntryItem(context, entry, target, options, callback) {
 		const { name } = options;
@@ -215,7 +232,8 @@ hook.callAsync('b',function(error){
 		});
 	}
 ```
-有个问题，**entry**这个参数是怎么来的🤔️？
+
+有个问题，**entry**这个参数是怎么来的 🤔️？
 
 我们来打开`addEntry`的来源地之一的`EntryPlugin`
 
@@ -236,10 +254,10 @@ static createDependency(entry, options) {
 
 我们可以看到`entry`这个参数应该是`entryPlugin`或者是其他`XXXentryPlugin`的实例，将所有的`dep`都存入到`entryData`，紧接着调用`addModuleChain`,将所有的模块的入口的路径传入到`webpack`的模块链中
 
-
-
 #### addModuleChain
+
 接着调用的是`addModuleChain`去将`dep`添加到`factorizeQueue`中
+
 ```
 	addModuleChain(context, dependency, callback) {
 		this.handleModuleCreation(
@@ -260,7 +278,7 @@ handleModuleCreation(
 		this.factorizeModule(
 			{ currentProfile, factory, dependencies, originModule, context },
 			(err, newModule) => {
-			
+
 			}
 		);
 	}
@@ -271,6 +289,7 @@ factorizeModule(options, callback) {
 ```
 
 可以注意到这个时候执行了`this.factorizeQueue.add`方法
+
 ```
 this.factorizeQueue = new AsyncQueue({
 	name: "factorize",
@@ -279,7 +298,9 @@ this.factorizeQueue = new AsyncQueue({
 });
 
 ```
+
 **AsyncQueue**
+
 ```
 class AsyncQueue {
 	constructor({ name, parallelism, processor, getKey }) {
@@ -312,10 +333,11 @@ class AsyncQueue {
 
 }
 ```
+
 在`add`方法里面执行了`setImmediate(this._ensureProcessing)`,`setImmediate`使用类似与`setTimeout`，可以使用此方法代替`setTimeout(fn, 0)`执行繁重操作的方法。 可以最后通过`_startProcessing`来执行了`this._processor`，那么这个`this._processor`是什么呢？
 
 看了之前在`compilation`的`AsyncQueue`的实例化,就能知道是：`this._factorizeModule.bind(this)`
-兜兜转转😷又回到了`compilation`
+兜兜转转 😷 又回到了`compilation`
 
 ```
 	_factorizeModule(
@@ -342,21 +364,23 @@ class AsyncQueue {
 		);
 	}
 ```
+
 在`_factorizeModule`中执行了`factory.create`.
 这时候有两个问题：
 
-1. factory是什么呢？
-2. create的作用是什么？
+1. factory 是什么呢？
+2. create 的作用是什么？
 
 怀着这个问题：
 
 在`debugger`之后可以看到是：
 
-![normalModuleFactory](https://github.com/zengwmFE/frontEnd-base/blob/master/image/moduleCreate.png)
+![normalModuleFactory](https://github.com/zengwmFE/frontEnd-base/raw/master/image/moduleCreate.png)
 
 > 可以知道这个对象是一个`NormalModuleFactory`，这样的`Factory`不仅仅只有`NormalModuleFactory`这一个，事实上，根据你引入模块的不一样有不同的工厂函数去生成对应的模块，这里因为是一个简单的，所以只使用了一个`NormalModuleFactory`，其实根据名字我们也能大概知道`create`的作用了，就是根据模块工厂的不一样，将`dependenies`转化成对应的`Module`
 
 这段流程比较长，需要汇总一下才能更清楚点：
+
 ```
 addEntry->addModuleChain->
 handleModuleCreation->
@@ -407,7 +431,9 @@ factory.create
 		);
 	}
 ```
+
 执行了`buildModule`,执行`_buildModule`，接着执行`module.build`方法开始构建，这里的`module.build`指的是`NormalModule.js`中的`build`,看下这段代码
+
 ```
 build(options, compilation, resolver, fs, callback) {
 		this._source = null;
@@ -419,7 +445,6 @@ build(options, compilation, resolver, fs, callback) {
 ```
 
 接着执行了`this.doBuild`
-
 
 > 在这里提一句，这里出现了`_source`和`_ast`，是分别代表模块路径和`AST`树
 
@@ -486,18 +511,21 @@ doBuild(options, compilation, resolver, fs, callback) {
 		);
 	}
 ```
-####  runLoaders使用loader转换js模块
 
-
+#### runLoaders 使用 loader 转换 js 模块
 
 > Run a webpack loader (or chain of loaders) from the command line
 
-这东西就有意思了🌹，可以让我们在不需要`webpack`的情况下，就可以执行`loader`，所以在`webpack`内部中就使用了🐸。
+这东西就有意思了 🌹，可以让我们在不需要`webpack`的情况下，就可以执行`loader`，所以在`webpack`内部中就使用了 🐸。
 
-复习以下loader的作用：
+复习以下 loader 的作用：
+
 1. `loader`让`webpack`能够去处理那些非 `JavaScript `文件（`webpack`自身只理解 `JavaScript`）。`loader` 可以将所有类型的文件转换为 `webpack` 能够处理的有效模块，然后你就可以利用 `webpack` 的打包能力，对它们进行处理。
-----
+
+---
+
 所以我们知道在这里`runloaders`的作用为将所有的模块，用对应的`loader`转换成`js`模块，然后调用`processResult`将转化后的模块传递给`this.doBuild`的回调函数
+
 ```
 err => {
 	let result;
@@ -512,11 +540,13 @@ err => {
 		}
 });
 ```
-接着便调用`this.parser.parse`方法📦，这个parser是哪来的呢？
 
-**答案就是🍎：`webpack/lib/javascript/JavascriptParser.js`**
+接着便调用`this.parser.parse`方法 📦，这个 parser 是哪来的呢？
+
+**答案就是 🍎：`webpack/lib/javascript/JavascriptParser.js`**
 
 来看一下这个地方是做什么用的，可以知道最终调用的是`_parse`方法
+
 ```
 	static _parse(code, options) {
 		const type = options ? options.sourceType : "module";
@@ -539,21 +569,23 @@ err => {
 
 > A tiny, fast JavaScript parser written in JavaScript.
 
-
-![](https://github.com/zengwmFE/frontEnd-base/blob/master/image/ast.png)
+![](https://github.com/zengwmFE/frontEnd-base/raw/master/image/ast.png)
 
 **我们知道了`webpack`是通过`acorn`将所有的`javascript`模块都转换成`ast`🐿️**
 
+#### buildModule 小段流程总结
 
-#### buildModule小段流程总结
 1. 首先`buildModule`到`module.build`中的`normalModule`进行了`loader`对所有模块的解析，将其转换化为对应的`javascript`模块代码
 2. 使用`acorn`的`parse`的方法，将所有的`javascript`模块都拆解成`ast`
 
+#### succeedModule 结束 make 阶段
 
-#### succeedModule结束make阶段
 等到模块构建完，并分析完依赖之后，执行`this.hooks.succeedModule.call(module);`
-### 6. seal chunks的创建和优化
+
+### 6. seal chunks 的创建和优化
+
 紧接着执行`complation.seal`
+
 ```
 	compilation.seal(err => {
 		this.hooks.afterCompile.callAsync(compilation, err => {
@@ -562,6 +594,7 @@ err => {
 			});
 	});
 ```
+
 `seal`看源码注释就知道这个方法主要用来创建`chunks`，以及一系列的优化，来具体的分析一下，在模块构建的过程中，我们知道，`webpack`会将所有分析出来的依赖如我们这里的`export`和`index`模块,都分别存放到`complation.modules`这个数组里面。
 
 ```
@@ -569,21 +602,24 @@ err => {
 			ChunkGraph.setChunkGraphForModule(module, chunkGraph);
 	}
 ```
+
 在`debug`中我们可以看到循环出来的`module`，来看看
 
-![export模块](https://github.com/zengwmFE/frontEnd-base/blob/master/image/webpack-modules.png)
+![export模块](https://github.com/zengwmFE/frontEnd-base/raw/master/image/webpack-modules.png)
 
-可以看到这个地方有一个叫`dependencies`的属性，二者里面就包括了这个模块所依赖的下一个模块，然后我们在看看`index.js`模块长啥样🖐️：
+可以看到这个地方有一个叫`dependencies`的属性，二者里面就包括了这个模块所依赖的下一个模块，然后我们在看看`index.js`模块长啥样 🖐️：
 
-![export模块](https://github.com/zengwmFE/frontEnd-base/blob/master/image/webpack-modules2.png)
+![export模块](https://github.com/zengwmFE/frontEnd-base/raw/master/image/webpack-modules2.png)
 
-#### chunk生成算法
+#### chunk 生成算法
+
 1. `webpack`先将`entry`中对应的`module`都生成一个新的`chunk`
 2. 遍历`module`的依赖列表，将依赖的`module`也加入到`chunk`中
 3. 如果一个依赖`module`是动态引入的模块，那么就根据这个`module`创建一个新的`chunk`
 4. 重复上面的过程，知道得到所有的`chunk`
 
-#### chunk优化
+#### chunk 优化
+
 调用了大量的钩子去执行`chunks`的优化
 
 ```
@@ -634,15 +670,16 @@ err => {
 
 到这里我们构建需要的`chunks`和`modules`都成功构建好了,接下来就进入**文件输出**
 
-### 7. hash生成及文件输出
+### 7. hash 生成及文件输出
 
 首先进行文件`hash`的创建:`createHash`
 紧接着进行文件的生成，
+
 1. 调用`createModuleAssets`
-这个功能主要是为了遍历模块中的需要构建的模块，然后调用`emitAsset`将模块路径生成以`fileName`和`source`为键值对的`Map`,存放在`assets`
+   这个功能主要是为了遍历模块中的需要构建的模块，然后调用`emitAsset`将模块路径生成以`fileName`和`source`为键值对的`Map`,存放在`assets`
 
 2. 调用`createChunkAssets`，遍历`chunks`,获取对应的`fileName`和`source`，然后存放在`assets`
-遍历`chunks`
+   遍历`chunks`
 
 ```
 createModuleAssets() {
@@ -749,7 +786,7 @@ createChunkAssets(callback) {
 	}
 ```
 
-在`Complation`的构造函数,我们可以看到，实例化了四个`template`,其实也能算是3个，`runtimeTemplate`是用来生成`moduleTemplate`的
+在`Complation`的构造函数,我们可以看到，实例化了四个`template`,其实也能算是 3 个，`runtimeTemplate`是用来生成`moduleTemplate`的
 
 ```
 	this.mainTemplate = new MainTemplate(this.outputOptions, this);
@@ -758,13 +795,14 @@ createChunkAssets(callback) {
 			this.outputOptions,
 			this.requestShortener
 		);
-		
+
 	this.moduleTemplates = {
 			javascript: new ModuleTemplate(this.runtimeTemplate, this)
 	};
 ```
 
 看一下`MainTemplate`中，我们可以看到一个在打包文件中非常常见的`__webpack_require__`
+
 ```
 Object.defineProperty(MainTemplate.prototype, "requireFn", {
 	get: util.deprecate(
@@ -774,16 +812,19 @@ Object.defineProperty(MainTemplate.prototype, "requireFn", {
 	)
 });
 ```
+
 可以才想这个类是跟我们`bundles`模版生成有相关的，事实上
+
 1. `MainTemplate`对入口模块`chunk`进行编译，用来生成入口模块的`bundle`
 2. `ChunkTemplate`是对非入口模块的`chunk`
 3. `ModuleTemplate`渲染模块中引入的模块
 
 事实上，我们在打包完成的`bundles`可以看到有大量`__webpack_require__`，却没有看到我们所正常认识的`import`和`require`，就是在这里替换成`__webpack_require__`
 
-
 #### 文件输出
+
 做完这些事，`complation`也做完了自己的事了，`this.compile(onCompiled)`,通过`onCompiled`回调执行，随即将调用`compiler`的`emitAssets`
+
 ```
 this.hooks.emit.callAsync(compilation, err => {
 	outputPath = compilation.getPath(this.outputPath, {});
@@ -793,7 +834,7 @@ this.hooks.emit.callAsync(compilation, err => {
 
 然后执行了`this.hooks.done`结束整个编译过程
 
-### 另附一份简单版的webpack实现
+### 另附一份简单版的 webpack 实现
 
 [老样子，世界上最大的同性交友网站](https://github.com/zengwmFE/my-webpack)
 
