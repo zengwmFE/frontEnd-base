@@ -1,26 +1,16 @@
 ### 组件更新
-<<<<<<< HEAD
-当数据发生变化的时候，或者创建了一个组件的时候，就会调用`patch`进行组件的更新，该方法在`src/core/instance/lifecycle.js`的`vm._update`
-
-```
- Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
-=======
 
 当数据发生变化，就会进行组件组件的更新，这个方法来自`src\core\instance\lifecycle.js`
 
 ```
 Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
->>>>>>> bd5a4e6d1d4665f30bcb55472e9d65baa39fdf86
     const vm: Component = this
     const prevEl = vm.$el
     const prevVnode = vm._vnode
     const restoreActiveInstance = setActiveInstance(vm)
     vm._vnode = vnode
-<<<<<<< HEAD
-=======
     // Vue.prototype.__patch__ is injected in entry points
     // based on the rendering backend used.
->>>>>>> bd5a4e6d1d4665f30bcb55472e9d65baa39fdf86
     if (!prevVnode) {
       // initial render
       vm.$el = vm.__patch__(vm.$el, vnode, hydrating, false /* removeOnly */)
@@ -40,11 +30,6 @@ Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
     if (vm.$vnode && vm.$parent && vm.$vnode === vm.$parent._vnode) {
       vm.$parent.$el = vm.$el
     }
-<<<<<<< HEAD
-  }
-```
-主要是通过`preVnode`来判断是初始化，还是更新节点，来传入不同的更新参数,但是执行的方法都是同一个
-=======
     // updated hook is called by the scheduler to ensure that children are
     // updated in a parent's updated hook.
   }
@@ -171,12 +156,12 @@ return function patch (oldVnode, vnode, hydrating, removeOnly) {
 ```
 function sameVnode (a, b) {
   return (
-    a.key === b.key && (
+    a.key === b.key && ( // key值
       (
-        a.tag === b.tag &&
-        a.isComment === b.isComment &&
-        isDef(a.data) === isDef(b.data) &&
-        sameInputType(a, b)
+        a.tag === b.tag && // 标签名
+        a.isComment === b.isComment && // 是否为注释节点
+        isDef(a.data) === isDef(b.data) && // 是否定义了data，data包含了一些具体信息，例如onclick,style
+        sameInputType(a, b) // 当标签是input的时候，type必须也一样
       ) || (
         isTrue(a.isAsyncPlaceholder) &&
         a.asyncFactory === b.asyncFactory &&
@@ -188,6 +173,10 @@ function sameVnode (a, b) {
 ```
 
 在这里通过`key`、`tag`、`isComment`、`data`等数据来判断是否是同一个`vnode`，来进行逻辑判断不同的逻辑更新
+
+#### 问题提出
+如果两个节点都是一样的，  那么就深入检查它的子节点，如果两个节点不一样，那么就认为`vnode`完全被改变了，就可以直接替换`oldVnode`
+但是如果这两个节点不一样但是它们的子节点相同，`domdiff`是逐层比较的，如果第一层不一样，那么就不会在比较下一层了
 
 ### 新旧节点不同
 
@@ -368,7 +357,7 @@ function sameVnode (a, b) {
 
 #### updateChildren
 
-`updateChildren`是作为`dom diff`最核心的位置，在`oldCh`和`ch`都存在，且不相同，就需要调用这个方法来更新子节点
+`updateChildren`是作为`dom diff`最核心的位置，比较节点的子节点是否不一样，在`oldCh`和`ch`都存在，且不相同，就需要调用这个方法来更新子节点
 
 ```
   function updateChildren(
@@ -520,4 +509,128 @@ function sameVnode (a, b) {
     }
   }
 ```
->>>>>>> bd5a4e6d1d4665f30bcb55472e9d65baa39fdf86
+
+
+### 例子一下
+```
+<div id="app"> <div> <ul> <li v-for="item in items" :key="item.id">{{ item.val }}</li> </ul> </div> <button @click="change">点击我</button> </div>
+ <script> var app = new Vue({
+    el: '#app', data: { items: [ { id: 0, val: 'A' }, { id: 1, val: 'B' }, { id: 2, val: 'C' }, { id: 3, val: 'D' } ] }, 
+    methods: { 
+      change() { this.items.reverse().push({ id: 4, val: 'E' }) } 
+      } }) 
+ </script>
+
+```
+
+就是初始化的时候渲染列表为`A,B,C,D`,当点击的时候将数据中`push`一个`E`并反转，结果`D,C,B,A,E`
+
+```
+old  A B C D 
+new  D C B A E 
+```
+分析一下过程：
+1. 发现`oldEndVnode`和`newStartVnode`相同，就需要将`D`插入到最前面，然后`oldEndVnode`向左移动，`newStartVnode`向右移动
+2. 重复上面的过程，得到`DCBA`
+3. 然后比较发现`E`没有存在这个元素，就需要调用`createEle`创建一个新的元素
+
+###  具体分析一下`patchChildren`
+1. 初始化全局变量
+2. 定义循环，去遍历整个`vnode`
+```
+while (oldStartIdx <= oldEndIdx && newStartIdx <= newEndIdx) {
+  ...
+}
+```
+3. 检测`oldStartVnode`、`oldEndVnode`。如果`oldStartVnode`不存在，`oldCh`就会朝后移动，如果`oldEndVnode`不存在,`oldCh`终止向前移动
+
+```
+ if (isUndef(oldStartVnode)) {
+        //
+        oldStartVnode = oldCh[++oldStartIdx]; // Vnode has been moved left
+      } else if (isUndef(oldEndVnode)) {
+        oldEndVnode = oldCh[--oldEndIdx];
+      } 
+```
+
+4. 比较`oldStartVnode`和`newStartVnode`如果是真，则`patchVnode`同时彼此都向后移动一个`index`
+
+```
+else if(sameVnode(oldStartVnode, newStartVnode)) {
+        patchVnode(oldStartVnode, newStartVnode, insertedVnodeQueue, newCh, newStartIdx)
+        oldStartVnode = oldCh[++oldStartIdx]
+        newStartVnode = newCh[++newStartIdx]
+} 
+
+
+```
+
+5. 对比`oldEndVnode`和`newEndVnode`如果为真则执行`patchVnode`同时向前移动一位
+
+```
+else if (sameVnode(oldEndVnode, newEndVnode)) {
+        patchVnode(oldEndVnode, newEndVnode, insertedVnodeQueue, newCh, newEndIdx)
+        oldEndVnode = oldCh[--oldEndIdx]
+        newEndVnode = newCh[--newEndIdx]
+} 
+```
+
+6. 对比 oldStartVnode 和 newEndVnode 如果为真则执行 patchVnode，然后将该节点移动到 vnode 数组最后一位
+```
+else if (sameVnode(oldStartVnode, newEndVnode)) { // Vnode moved right
+        patchVnode(oldStartVnode, newEndVnode, insertedVnodeQueue, newCh, newEndIdx)
+        canMove && nodeOps.insertBefore(parentElm, oldStartVnode.elm, nodeOps.nextSibling(oldEndVnode.elm))
+        oldStartVnode = oldCh[++oldStartIdx]
+        newEndVnode = newCh[--newEndIdx]
+} 
+```
+
+7. 对比 oldEndVnode 和 newStartVnode 如果为真则执行 patchVnode，然后将该节点移动到`vnode`数组第一位
+
+```
+else if (sameVnode(oldEndVnode, newStartVnode)) { // Vnode moved left
+        patchVnode(oldEndVnode, newStartVnode, insertedVnodeQueue, newCh, newStartIdx)
+        canMove && nodeOps.insertBefore(parentElm, oldEndVnode.elm, oldStartVnode.elm)
+        oldEndVnode = oldCh[--oldEndIdx]
+        newStartVnode = newCh[++newStartIdx]
+      }
+```
+
+
+8. 对比`idx`如果没有相同的`idx`则执行`createEle`
+
+```
+ if (isUndef(idxInOld)) { // New element
+    createElm(newStartVnode, insertedVnodeQueue, parentElm, oldStartVnode.elm, false, newCh, newStartIdx)
+```
+9. 对比`idx`如果两个`vnode`相同，那么就把`vnode patch`，反之认作是新元素，
+
+```
+if (sameVnode(vnodeToMove, newStartVnode)) {
+            patchVnode(vnodeToMove, newStartVnode, insertedVnodeQueue, newCh, newStartIdx)
+            oldCh[idxInOld] = undefined
+            canMove && nodeOps.insertBefore(parentElm, vnodeToMove.elm, oldStartVnode.elm)
+} 
+```
+
+10. 如果老 vnode 数组的开始索引大于结束索引，说明新 node 数组长度大于老 vnode 数组，执行 addVnodes 方法添加这些新 vnode 到 DOM 中
+当`oldStartVnode`大于`oldEndVnode`
+
+```
+if (oldStartIdx > oldEndIdx) {
+      refElm = isUndef(newCh[newEndIdx + 1]) ? null : newCh[newEndIdx + 1].elm
+      addVnodes(parentElm, refElm, newCh, newStartIdx, newEndIdx, insertedVnodeQueue)
+    } 
+```
+则是因为在`newVnode`的长度，要大于`oldVnode`就应该将新增加的`vnode`插入到`dom`
+
+11. 如果老 vnode 数组的开始索引小于结束索引，说明老 node 数组长度大于新 vnode 数组，执行 removeVnodes 方法从 DOM 中移除老 vnode 数组中多余的 vnode
+
+```
+else if (newStartIdx > newEndIdx) {
+      removeVnodes(oldCh, oldStartIdx, oldEndIdx)
+}
+```
+
+
+![dom diff推荐文章](https://www.cnblogs.com/wind-lanyan/p/9061684.html)
