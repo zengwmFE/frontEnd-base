@@ -162,7 +162,7 @@ export function nextTick (cb?: Function, ctx?: Object) {
 3. 然后判断`setImmdiate`
 4. 最后使用`setTimeout`
 
-> 首先我们知道，在这里面，`Promise`和`MutationObserver`属于`micotask`而`setImmdiate`和`setTimeout`属于`macrotask`的范畴
+> 首先我们知道，在这里面，`Promise`和`MutationObserver`属于`micotask`而`setImmdiate`和`setTimeout`属于`macrotask`的范畴，可以看到`isUsingMicroTask`决定的是使用是微任务还是宏任务
 
 #### 接着可以看看`nextTick`是怎么做到 dom 更新和回调执行顺序
 
