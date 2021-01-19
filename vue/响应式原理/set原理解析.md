@@ -85,4 +85,70 @@ export class Observer {
 }
 ```
 
-在通过`observer`观察对象的时候，会实例化`Observer`
+在通过`observer`观察对象的时候，会实例化`Observer`,首先在这里看到定义了`__ob__`的函数。同时还判断了`value`是否是`Array`,然后根据`hasProto`，来区别调用`protoAugment`和`copyAugment`,这个`hasProto`实际上就是判断对象是否存在`__proto__`。
+
+```
+function protoAugment (target, src: Object) {
+  target.__proto__ = src
+}
+
+/**
+ * Augment a target Object or Array by defining
+ * hidden properties.
+ */
+function copyAugment (target: Object, src: Object, keys: Array<string>) {
+  for (let i = 0, l = keys.length; i < l; i++) {
+    const key = keys[i]
+    def(target, key, src[key])
+  }
+}
+```
+
+1. protoAugment 直接将 src 给了`target`的原型对象
+2. copyAugment 循环了 keys,然后使用`def`定义 target 的属性值，def 是通过`defineProperty`
+   因为现代浏览器大部分都是会走向`protoAugment`,那么事实上是指向了`arrayMethods`
+
+```
+//\core\observer\array.js
+const arrayProto = Array.prototype
+export const arrayMethods = Object.create(arrayProto)
+
+const methodsToPatch = [
+  'push',
+  'pop',
+  'shift',
+  'unshift',
+  'splice',
+  'sort',
+  'reverse'
+]
+
+/**
+ * Intercept mutating methods and emit events
+ */
+methodsToPatch.forEach(function (method) {
+  // cache original method
+  const original = arrayProto[method]
+  def(arrayMethods, method, function mutator (...args) {
+    const result = original.apply(this, args)
+    const ob = this.__ob__
+    let inserted
+    switch (method) {
+      case 'push':
+      case 'unshift':
+        inserted = args
+        break
+      case 'splice':
+        inserted = args.slice(2)
+        break
+    }
+    if (inserted) ob.observeArray(inserted)
+    // notify change
+    ob.dep.notify()
+    return result
+  })
+})
+
+```
+
+在这里`arrayMethods`继承了`Array`，然后对数组中所有能改变数组自身的方法进行了重写，保持了他们能按照原有方法执行的前提，给`push,unshift,splice`这三个能增加数组长度的方法，获取了要插入的值，并把这个插入的值变成响应式对象，他执行`ob.dep.notify()`去通知依赖，这就是为什么使用`splice`方法能检测到数组的改变
