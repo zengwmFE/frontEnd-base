@@ -256,4 +256,82 @@ if (watcher.dirty) {
   }
 ```
 
-###
+### watch
+
+侦听属性的初始化也是发生在 Vue 的实例初始化阶段`initState`:
+
+```
+if (opts.watch && opts.watch !== nativeWatch) {
+    initWatch(vm, opts.watch)
+  }
+function initWatch (vm: Component, watch: Object) {
+  for (const key in watch) {
+    const handler = watch[key]
+    if (Array.isArray(handler)) {
+      for (let i = 0; i < handler.length; i++) {
+        createWatcher(vm, key, handler[i])
+      }
+    } else {
+      createWatcher(vm, key, handler)
+    }
+  }
+}
+```
+
+首先遍历`watch`，得到每个 watch 属性，如果他是一个数组，那么就需要循环进行创建`watcher`,反之则直接创建：
+
+```
+export function isPlainObject (obj: any): boolean {
+  return _toString.call(obj) === '[object Object]'
+}
+function createWatcher (
+  vm: Component,
+  expOrFn: string | Function,
+  handler: any,
+  options?: Object
+) {
+  if (isPlainObject(handler)) {
+    options = handler
+    handler = handler.handler
+  }
+  if (typeof handler === 'string') {
+    handler = vm[handler]
+  }
+  return vm.$watch(expOrFn, handler, options)
+}
+```
+
+在这里调用了`$watch`方法，来注册监听，这种全局方法一般是通过`mixin`注册的，我们可以在`stateMixin`找到这个方法
+
+```
+\core\instance\state.js
+Vue.prototype.$watch = function (
+    expOrFn: string | Function,
+    cb: any,
+    options?: Object
+  ): Function {
+    const vm: Component = this
+    if (isPlainObject(cb)) {
+      return createWatcher(vm, expOrFn, cb, options)
+    }
+    options = options || {}
+    options.user = true
+    const watcher = new Watcher(vm, expOrFn, cb, options)
+    if (options.immediate) {
+      try {
+        cb.call(vm, watcher.value)
+      } catch (error) {
+        handleError(error, vm, `callback for immediate watcher "${watcher.expression}"`)
+      }
+    }
+    return function unwatchFn () {
+      watcher.teardown()
+    }
+  }
+
+```
+
+在这里判断了`cb`是否是`object`,因为`$watch`作为一个全局方法，使的用户在外部也能正常使用，所以需要在这里进行一次`createWatcher`,然后`const watcher = new Watcher(vm, expOrFn, cb, options)`初始化了一个`watcher`,所以当我们数据发生改变的时候，就会执行 watcher 的`update`，也就是`this.run`方法，也就是调用了回调函数，返回`newValue`和`oldValue`
+在最后处理中，可以看到判断了`options.immediate`，如果是`true`这直接回调用`cb.call(vm.watcher.value)`，获取了值。然后再最后执行了`unwatchFn`,执行`watcher.teardown`来实现对这个监听进行移除
+
+### watcher options
