@@ -335,3 +335,119 @@ Vue.prototype.$watch = function (
 在最后处理中，可以看到判断了`options.immediate`，如果是`true`这直接回调用`cb.call(vm.watcher.value)`，获取了值。然后再最后执行了`unwatchFn`,执行`watcher.teardown`来实现对这个监听进行移除
 
 ### watcher options
+
+```
+if (options) {
+      this.deep = !!options.deep;
+      this.user = !!options.user;
+      this.lazy = !!options.lazy;
+      this.sync = !!options.sync;
+      this.before = options.before;
+    } else {
+      this.deep = this.user = this.lazy = this.sync = false;
+    }
+```
+
+`watcer`总共有 4 种配置选项
+
+#### deep
+
+通常需要对对象进行深层次的侦测的时候，就需要对`deep`设置为`true`:
+
+```
+
+    let vm = new Vue({
+      el: '#app',
+      data(){
+        return {
+          message: {
+            name: 'hello zeng'
+          }
+        }
+      },
+      watch: {
+        message: {
+          handler(newValue){
+            console.log(newValue)
+          }
+        }
+      }
+    })
+
+    vm.message.name = 'hello ming'
+```
+
+可以看到这个时候`handler`里面是不会打印出来的：这里是因为在设置了`watcher`的时候，仅仅是对`message`的设置了`getter`和`set`，所以当更改了`name`的时候，只能触发`name`的`setter`,但是，因为没有对应可以通知的对象，所以也就无法触发回调函数,其实我们知道增加一个`deep:true`就能实现深层次的监听
+
+```
+ message: {
+          deep: true,
+          handler(newValue){
+            console.log(newValue)
+          }
+  }
+```
+
+来看下`watch`里面对这里的处理：
+
+```
+if (this.deep) {
+    traverse(value);
+}
+```
+
+`traverse`代码被定义在:`core\observer\traverse.js`
+
+```
+export function traverse (val: any) {
+  _traverse(val, seenObjects)
+  seenObjects.clear()
+}
+function _traverse (val: any, seen: SimpleSet) {
+  let i, keys
+  const isA = Array.isArray(val)
+  if ((!isA && !isObject(val)) || Object.isFrozen(val) || val instanceof VNode) {
+    return
+  }
+  if (val.__ob__) {
+    const depId = val.__ob__.dep.id
+    if (seen.has(depId)) {
+      return
+    }
+    seen.add(depId)
+  }
+  if (isA) {
+    i = val.length
+    while (i--) _traverse(val[i], seen)
+  } else {
+    keys = Object.keys(val)
+    i = keys.length
+    while (i--) _traverse(val[keys[i]], seen)
+  }
+}
+```
+
+在这里对对象进行了一个深层递归访问了，在进行了遍历，就是使用了属性的`getter`，也就触发了依赖收集。在这里往`seenObjects`内添加了子对象的`depId`,利用`Set`属性唯一性的原则，首先避免了重复添加，也可以避免重复访问
+
+#### user
+
+这个变量用来判断是否是用户主动通过`this.$watch`来创建一个`watch`属性，这个属性就是防止了用户使用这个方法的时候报错，所以增加了了容错处理
+
+#### sync watcher
+
+在响应式对象发生变化时，就会触发响应式对象得`setter`，就会触发`dep.notify()`,也就会派发更新,执行`update`
+
+```
+update() {
+    /* istanbul ignore else */
+    if (this.lazy) {
+      this.dirty = true;
+    } else if (this.sync) {
+      this.run();
+    } else {
+      queueWatcher(this);
+    }
+  }
+```
+
+如果我们没有设置`sync`和`lazy`为 false 得时候，就会执行`queueWatcher`,将这个放入到`queue`,等到`nextTick`得时候就会执行之前所有的更新。但是如果设置了`sync`就会直接执行`this.run`进行更新的派发
