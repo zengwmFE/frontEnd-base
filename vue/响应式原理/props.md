@@ -383,3 +383,19 @@ if (isDef(data) && isDef((i = data.hook)) && isDef((i = i.prepatch))) {
     vm.$options.propsData = propsData
   }
 ```
+
+`propsKeys`是在`initProps`保存的，子组件中`props`的`key`值，这里是就通过循环`propKeys`来验证`props`的准确性，最后来更新这些值
+
+#### toggleObserving
+
+在文件中可以看到出现很多`toggleObserving`的执行
+
+```
+export let shouldObserve: boolean = true
+
+export function toggleObserving (value: boolean) {
+  shouldObserve = value
+}
+```
+
+`shouldObserve`用来控制`observe`的过程中是否需要将当前变量变成一个响应对象
