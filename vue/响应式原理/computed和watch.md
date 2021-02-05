@@ -111,13 +111,13 @@ export function defineComputed (
 ```
 function createComputedGetter (key) {
   return function computedGetter () {
-    const watcher = this._computedWatchers && this._computedWatchers[key]
+    const watcher = this._computedWatchers && this._computedWatchers[key] // 创建一个compute的Watcher
     if (watcher) {
       if (watcher.dirty) {
-        watcher.evaluate()
+        watcher.evaluate()// ->get获取值
       }
       if (Dep.target) {
-        watcher.depend()
+        watcher.depend() // -> watcher.addDep 添加依赖
       }
       return watcher.value
     }
@@ -195,9 +195,9 @@ update() {
     if (this.lazy) {
       this.dirty = true;
     } else if (this.sync) {
-      this.run();
+      this.run(); // ->直接获取值
     } else {
-      queueWatcher(this);
+      queueWatcher(this); // -> 使用nextTick那一套来更新值 相当于通过任务来执行了this.run方法
     }
   }
 ```
