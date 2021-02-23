@@ -114,19 +114,6 @@ function processAttrs (el) {
         }
       }
     } else {
-      // literal attribute
-      if (process.env.NODE_ENV !== 'production') {
-        const res = parseText(value, delimiters)
-        if (res) {
-          warn(
-            `${name}="${value}": ` +
-            'Interpolation inside attributes has been removed. ' +
-            'Use v-bind or the colon shorthand instead. For example, ' +
-            'instead of <div id="{{ val }}">, use <div :id="val">.',
-            list[i]
-          )
-        }
-      }
       addAttr(el, name, JSON.stringify(value), list[i])
       // #6887 firefox doesn't update muted state if set via attribute
       // even immediately after element creation
@@ -138,4 +125,97 @@ function processAttrs (el) {
     }
   }
 }
+function parseModifiers (name: string): Object | void {
+  const match = name.match(modifierRE)
+  if (match) {
+    const ret = {}
+    match.forEach(m => { ret[m.slice(1)] = true })
+    return ret
+  }
+}
+```
+
+对标签属性进行处理，判断当前是指令的话：`dirRE.test(name)`，就会首先通过`parseModified`解析出修饰符，然后判断`onRE.test(name)`或者是`bindRE.test(name)`中的事件，就会使用`addHandler`
+
+```
+export function addHandler (
+  el: ASTElement,
+  name: string,
+  value: string,
+  modifiers: ?ASTModifiers,
+  important?: boolean,
+  warn?: ?Function,
+  range?: Range,
+  dynamic?: boolean
+) {
+  modifiers = modifiers || emptyObject
+  // 1. 根据modified修饰符然后对事件名进行处理
+  if (modifiers.right) {
+    if (dynamic) {
+      name = `(${name})==='click'?'contextmenu':(${name})`
+    } else if (name === 'click') {
+      name = 'contextmenu'
+      delete modifiers.right
+    }
+  } else if (modifiers.middle) {
+    if (dynamic) {
+      name = `(${name})==='click'?'mouseup':(${name})`
+    } else if (name === 'click') {
+      name = 'mouseup'
+    }
+  }
+
+  // check capture modifier
+  if (modifiers.capture) {
+    delete modifiers.capture
+    name = prependModifierMarker('!', name, dynamic)
+  }
+  if (modifiers.once) {
+    delete modifiers.once
+    name = prependModifierMarker('~', name, dynamic)
+  }
+  if (modifiers.passive) {
+    delete modifiers.passive
+    name = prependModifierMarker('&', name, dynamic)
+  }
+// 2. 判断是否是原生事件
+  let events
+  if (modifiers.native) {
+    delete modifiers.native
+    events = el.nativeEvents || (el.nativeEvents = {})
+  } else {
+    events = el.events || (el.events = {})
+  }
+
+  const newHandler: any = rangeSetItem({ value: value.trim(), dynamic }, range)
+  if (modifiers !== emptyObject) {
+    newHandler.modifiers = modifiers
+  }
+  // 3. 对事件名进行分类，存放到集合中
+  const handlers = events[name]
+  if (Array.isArray(handlers)) {
+    important ? handlers.unshift(newHandler) : handlers.push(newHandler)
+  } else if (handlers) {
+    events[name] = important ? [newHandler, handlers] : [handlers, newHandler]
+  } else {
+    events[name] = newHandler
+  }
+
+  el.plain = false
+}
+```
+
+主要是做了以上三件事
+
+所以说在例子内组件`child`得事件对象会有两种：
+
+```
+el.events = {
+  select: {
+    value: 'selectHandler'
+  }
+}
+
+// 原生事件：
+el.native
 ```
