@@ -26,6 +26,34 @@
 </current-user>
 ```
 
+### 提要
+
+不同的编译标识对应着不同的方法
+`src\core\instance\render-helpers\index.js`
+
+```
+export function installRenderHelpers (target: any) {
+  target._o = markOnce
+  target._n = toNumber
+  target._s = toString
+  target._l = renderList
+  target._t = renderSlot
+  target._q = looseEqual
+  target._i = looseIndexOf
+  target._m = renderStatic
+  target._f = resolveFilter
+  target._k = checkKeyCodes
+  target._b = bindObjectProps
+  target._v = createTextVNode
+  target._e = createEmptyVNode
+  target._u = resolveScopedSlots
+  target._g = bindObjectListeners
+  target._d = bindDynamicKeys
+  target._p = prependModifier
+}
+
+```
+
 ### 具名插槽
 
 🌰：
@@ -215,64 +243,196 @@ function genSlot (el: ASTElement, state: CodegenState): string {
 
 1. 首先对 slot 和 name，进行 res 的生成:`\_t(${slotName}${children ? `,${children}` : ''}`
 
-后编译子组件里面的`slot`组件：`<slot name="header"></slot>`,也就是以这个来编译的话,`el.scopedSlots`就是存在了，
+生成的父组件
 
 ```
-function genScopedSlots (
-  el: ASTElement,
-  slots: { [key: string]: ASTElement },
-  state: CodegenState
-): string {
-  // by default scoped slots are considered "stable", this allows child
-  // components with only scoped slots to skip forced updates from parent.
-  // but in some cases we have to bail-out of this optimization
-  // for example if the slot contains dynamic names, has v-if or v-for on them...
-  let needsForceUpdate = el.for || Object.keys(slots).some(key => {
-    const slot = slots[key]
-    return (
-      slot.slotTargetDynamic ||
-      slot.if ||
-      slot.for ||
-      containsSlotChild(slot) // is passing down slot from parent which may be dynamic
-    )
-  })
+with(this){
+  return _c('div',
+    [_c('app-layout',
+      [_c('h1',{attrs:{"slot":"header"},slot:"header"},
+         [_v(_s(title))]),
+       _c('p',[_v(_s(msg))]),
+       _c('p',{attrs:{"slot":"footer"},slot:"footer"},
+         [_v(_s(desc))]
+         )
+       ])
+     ],
+   1)}
+```
 
-  // #9534: if a component with scoped slots is inside a conditional branch,
-  // it's possible for the same component to be reused but with different
-  // compiled slot content. To avoid that, we generate a unique key based on
-  // the generated code of all the slot contents.
-  let needsKey = !!el.if
+然后后编译子组件里面的`slot`组件：`<slot name="header"></slot>`，在`processSlotOutlet`，可以看到对于 tag 为`slot`的内容有逻辑：
 
-  // OR when it is inside another scoped slot or v-for (the reactivity may be
-  // disconnected due to the intermediate scope variable)
-  // #9438, #9506
-  // TODO: this can be further optimized by properly analyzing in-scope bindings
-  // and skip force updating ones that do not actually use scope variables.
-  if (!needsForceUpdate) {
-    let parent = el.parent
-    while (parent) {
-      if (
-        (parent.slotScope && parent.slotScope !== emptySlotScopeToken) ||
-        parent.for
-      ) {
-        needsForceUpdate = true
-        break
-      }
-      if (parent.if) {
-        needsKey = true
-      }
-      parent = parent.parent
+```
+function processSlotOutlet (el) {
+  if (el.tag === 'slot') {
+    el.slotName = getBindingAttr(el, 'name')
+  }
+}
+```
+
+在这里直接获取到了绑定的`slot`名为`header`
+
+#### 在 codegen 阶段
+
+generate 函数中`genElement`
+
+```
+export function genElement (el: ASTElement, state: CodegenState): string {
+if (el.tag === 'slot') {
+    return genSlot(el, state)
+  }
+}
+```
+
+genSlot 函数就是为了生成一个
+
+```
+function genSlot (el: ASTElement, state: CodegenState): string {
+  const slotName = el.slotName || '"default"'
+  const children = genChildren(el, state)
+  let res = `_t(${slotName}${children ? `,${children}` : ''}`
+  const attrs = el.attrs || el.dynamicAttrs
+    ? genProps((el.attrs || []).concat(el.dynamicAttrs || []).map(attr => ({
+        // slot props are camelized
+        name: camelize(attr.name),
+        value: attr.value,
+        dynamic: attr.dynamic
+      })))
+    : null
+  const bind = el.attrsMap['v-bind']
+  if ((attrs || bind) && !children) {
+    res += `,null`
+  }
+  if (attrs) {
+    res += `,${attrs}`
+  }
+  if (bind) {
+    res += `${attrs ? '' : ',null'},${bind}`
+  }
+  return res + ')'
+}
+```
+
+如果这个地方只是一个单纯的插槽，没有属性也没有`v-bind`的情况，那么`res`会比较简单，在刚才就介绍了如果`slotName`为空的时候，那么就会有个`default`的默认值，那么在这里渲染出来子组件的就是：
+
+```
+with(this) {
+  return _c('div',{
+    staticClass:"container"
+    },[
+      _c('header',[_t("header")],2),
+      _c('main',[_t("default",[_v("默认内容")])],2),
+      _c('footer',[_t("footer")],2)
+      ]
+   )
+}
+```
+
+`_t`就是`renderSlot`函数，在编译的时候，对插槽进行处理，在`src/core/instance/render-heplpers/render-slot.js`
+
+```
+export function renderSlot (
+  name: string,
+  fallback: ?Array<VNode>, // 插槽的默认内容生成的vnode数组
+  props: ?Object,
+  bindObject: ?Object
+): ?Array<VNode> {
+  // name: header,default,footer
+  const scopedSlotFn = this.$scopedSlots[name]
+  let nodes
+  if (scopedSlotFn) { // scoped slot
+    props = props || {}
+    if (bindObject) {
+      props = extend(extend({}, bindObject), props)
     }
+    nodes = scopedSlotFn(props) || fallback
+  } else {
+    nodes = this.$slots[name] || fallback
   }
 
-  const generatedSlots = Object.keys(slots)
-    .map(key => genScopedSlot(slots[key], state))
-    .join(',')
-
-  return `scopedSlots:_u([${generatedSlots}]${
-    needsForceUpdate ? `,null,true` : ``
-  }${
-    !needsForceUpdate && needsKey ? `,null,false,${hash(generatedSlots)}` : ``
-  })`
+  const target = props && props.slot
+  if (target) {
+    return this.$createElement('template', { slot: target }, nodes)
+  } else {
+    return nodes
+  }
 }
+```
+
+如果不是个`scope-slot`，也就符合我们子组件的`slot`，那么走的逻辑就是`nodes = this.$slots[name] || fallback`，那么这个`this.$slots`是从哪里来的呢？子组件的`init`时机是在执行父组件`patch`过程中的时候，那么这个时候，父组件已经编译完成了，在子组件`init`的过程中，会执行`initRender`函数:`src\core\instance\init.js`
+
+```
+export function initRender (vm: Component) {
+  ...
+  const options = vm.$options
+  const parentVnode = vm.$vnode = options._parentVnode // the placeholder node in parent tree
+  const renderContext = parentVnode && parentVnode.context
+  vm.$slots = resolveSlots(options._renderChildren, renderContext)
+  ...
+}
+```
+
+可以看到这里是通过`resolveSlots`返回了`vm.$slots`，`resolveSlots`在`render-helpers/resolve-slots`
+
+```
+export function resolveSlots (
+  children: ?Array<VNode>,
+  context: ?Component
+): { [key: string]: Array<VNode> } {
+  if (!children || !children.length) {
+    return {}
+  }
+  const slots = {}
+  for (let i = 0, l = children.length; i < l; i++) {
+    const child = children[i]
+    const data = child.data
+    // remove slot attribute if the node is resolved as a Vue slot node
+    if (data && data.attrs && data.attrs.slot) {
+      delete data.attrs.slot
+    }
+    // named slots should only be respected if the vnode was rendered in the
+    // same context.
+    if ((child.context === context || child.fnContext === context) &&
+      data && data.slot != null
+    ) {
+      const name = data.slot
+      const slot = (slots[name] || (slots[name] = []))
+      if (child.tag === 'template') {
+        slot.push.apply(slot, child.children || [])
+      } else {
+        slot.push(child)
+      }
+    } else {
+      (slots.default || (slots.default = [])).push(child)
+    }
+  }
+  // ignore slots that contains only whitespace
+  for (const name in slots) {
+    if (slots[name].every(isWhitespace)) {
+      delete slots[name]
+    }
+  }
+  return slots
+}
+```
+
+函数接受了 2 个参数：1 个是父`node`的 children,在这里就是:
+
+```
+'<h1 slot="header">{{title}}</h1>' +
+  '<p>{{msg}}</p>' +
+  '<p slot="footer">{{desc}}</p>' +
+```
+
+第二个参数`context`是父`vnode`的上下文，也就是父组件的`vm`实例，这个函数的作用就是循环`children`，然后拿到每个`data`，判断属性上的`slot`是否存在，如果存在，就将他移除。然后获取到 data 内的`slot`，然后用插槽`key`，然后将`child`作为`value`放入到对应 name 的数组里面，在这里这个`value`可能会存在多个同名的插槽.然后就把他返回赋值给了`vm.$slots`。
+
+接下来执行`renderSlot`的`nodes = this.$slots[name] || fallback`
+
+```
+const target = props && props.slot
+  if (target) {
+    return this.$createElement('template', { slot: target }, nodes)
+  } else {
+    return nodes
+  }
 ```
