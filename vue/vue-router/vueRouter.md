@@ -219,19 +219,18 @@ function addRouteRecord (
   matchAs?: string
 ) {
   const { path, name } = route
-
-  const pathToRegexpOptions: PathToRegexpOptions =
-    route.pathToRegexpOptions || {}
+  // 将path给标准化
   const normalizedPath = normalizePath(path, parent, pathToRegexpOptions.strict)
 
-  if (typeof route.caseSensitive === 'boolean') {
-    pathToRegexpOptions.sensitive = route.caseSensitive
-  }
-
+  // 创建一个routeRecord
   const record: RouteRecord = {
+    // 路由规范后的路径
     path: normalizedPath,
+    // 路由正则表达
     regex: compileRouteRegex(normalizedPath, pathToRegexpOptions),
+    // 将我们写的route.component转成了{components}
     components: route.components || { default: route.component },
+    // 别名
     alias: route.alias
       ? typeof route.alias === 'string'
         ? [route.alias]
@@ -239,11 +238,15 @@ function addRouteRecord (
       : [],
     instances: {},
     enteredCbs: {},
+    // 组件名
     name,
+    // 父组件
     parent,
     matchAs,
+    // 重定向
     redirect: route.redirect,
     beforeEnter: route.beforeEnter,
+    // route声明的元数据
     meta: route.meta || {},
     props:
       route.props == null
@@ -254,6 +257,15 @@ function addRouteRecord (
   }
 
   if (route.children) {
+
+     route.children.forEach(child => {
+      const childMatchAs = matchAs
+        ? cleanPath(`${matchAs}/${child.path}`)
+        : undefined
+      addRouteRecord(pathList, pathMap, nameMap, child, record, childMatchAs)
+    })
+   }
+  }
 
   if (!pathMap[record.path]) {
     pathList.push(record.path)
@@ -283,13 +295,90 @@ function addRouteRecord (
   if (name) {
     if (!nameMap[name]) {
       nameMap[name] = record
-    } else if (process.env.NODE_ENV !== 'production' && !matchAs) {
-      warn(
-        false,
-        `Duplicate named routes definition: ` +
-          `{ name: "${name}", path: "${record.path}" }`
-      )
     }
   }
 }
 ```
+
+声明了`routeRecord`之后，然后就判断了 routes 是否声明了`children`属性
+
+1. 如果配置了 children 属性，那么就递归执行`addRouteRecord`,将`children`的 route 也做成一个一样的 record，这样执行完之后，父路由和子路由就形成了一个类似树形的结构
+2. 开始处理 pathMap 和 pathList,将`path`保存到`pathList`，然后以`path`为`key`，`record`为 value，将`pathMap`储存起来
+3. 处理`route`的`alias`,如果`alias`是数组，那就作为数组，反之则加入数组，然后构成一个`aliasRoute`，然后递归调用`addRouteRecord`对这个`route`进行处理，在这里就是相当于在`routesRecord`重新创建了一个路径为`alias`的路由，然后加入到`pathMap`以及`nameMap`中
+4. 最后对 name 进行处理，去重，存入到`nameMap`中,`key`为 name,`value`为`record`
+
+创建完了`routeRecord`后回到`createMatcher`,
+可以看到`createMatcher`向外部提供了 4 个方法:`match`,`addRoute`,`getRoutes`,`addRoutes`
+
+```
+return {
+    match,
+    addRoute,
+    getRoutes,
+    addRoutes
+  }
+```
+
+### addRoutes
+
+```
+function addRoutes (routes) {
+    createRouteMap(routes, pathList, pathMap, nameMap)
+  }
+```
+
+这个方法是用来，动态创建`RouteRecord`，根据我们传入的`pathList`,`routes`
+
+### match
+
+```
+function match (
+    raw: RawLocation,
+    currentRoute?: Route,
+    redirectedFrom?: Location
+  ): Route {
+    const location = normalizeLocation(raw, currentRoute, false, router)
+    const { name } = location
+
+    if (name) {
+      const record = nameMap[name]
+      if (process.env.NODE_ENV !== 'production') {
+        warn(record, `Route with name '${name}' does not exist`)
+      }
+      if (!record) return _createRoute(null, location)
+      const paramNames = record.regex.keys
+        .filter(key => !key.optional)
+        .map(key => key.name)
+
+      if (typeof location.params !== 'object') {
+        location.params = {}
+      }
+
+      if (currentRoute && typeof currentRoute.params === 'object') {
+        for (const key in currentRoute.params) {
+          if (!(key in location.params) && paramNames.indexOf(key) > -1) {
+            location.params[key] = currentRoute.params[key]
+          }
+        }
+      }
+
+      location.path = fillParams(record.path, location.params, `named route "${name}"`)
+      return _createRoute(record, location, redirectedFrom)
+    } else if (location.path) {
+      location.params = {}
+      for (let i = 0; i < pathList.length; i++) {
+        const path = pathList[i]
+        const record = pathMap[path]
+        if (matchRoute(record.regex, location.path, location.params)) {
+          return _createRoute(record, location, redirectedFrom)
+        }
+      }
+    }
+    // no match
+    return _createRoute(null, location)
+  }
+```
+
+### addRoute
+
+### getRoutes
