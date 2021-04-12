@@ -379,6 +379,147 @@ function match (
   }
 ```
 
+`match`接收 3 个参数:`raw:rawLocation`,`currentRoute:route`,`redirectedFrom:location`，可以知道`raw`是一个`rawLocation`,`currentRoute`代表是当前得路由
+返回值是一个`route`对象
+
+1. 执行`normalizeLocation`方法（`src/util/location`）
+
+```
+export function normalizeLocation (
+  raw: RawLocation,
+  current: ?Route,
+  append: ?boolean,
+  router: ?VueRouter
+): Location {
+  let next: Location = typeof raw === 'string' ? { path: raw } : raw
+  if (next._normalized) {
+    return next
+  } else if (next.name) {
+    next = extend({}, raw)
+    const params = next.params
+    if (params && typeof params === 'object') {
+      next.params = extend({}, params)
+    }
+    return next
+  }
+
+  const parsedPath = parsePath(next.path || '')
+  const basePath = (current && current.path) || '/'
+  const path = parsedPath.path
+    ? resolvePath(parsedPath.path, basePath, append || next.append)
+    : basePath
+
+  const query = resolveQuery(
+    parsedPath.query,
+    next.query,
+    router && router.options.parseQuery
+  )
+
+  let hash = next.hash || parsedPath.hash
+  if (hash && hash.charAt(0) !== '#') {
+    hash = `#${hash}`
+  }
+
+  return {
+    _normalized: true,
+    path,
+    query,
+    hash
+  }
+}
+```
+
+> 首先可以看到这个方法，返回了 4 个值：`_normalized`,`path`,`query`,`hash`
+
+来从开头分析这个方法得工作原理：
+next：为对象，如果传入得`raw`不是对象得话，那么就生成一个`{path:raw}`
+判断这个路径是不是已经被规范化过得`_normalized`
+接下来对`raw`，进行`extends`，进行了一次浅拷贝，然后对`params`进行了浅拷贝
+
+接下来对`path`,`query`的处理
+
+2. 经过了路由标准化之后，优先对`name`进行了判断，然后去找在`nameMap`存放好的 record，然后构建一个新的 route 返回
+
+3. 如果没有`name`属性的话，就直接通过`path`来生成`route`,由于`path`可能含有`param`这种情况，这样的话，里面的路径就不是唯一的了，所以他要对于`pathList`所有的路劲列表进行遍历，然后通过`matchRoute`匹配出对应的`route`,最后返回新的`route`
+
+最后`createRoute`返回的`route`形式：
+
+```
+export function createRoute (
+  record: ?RouteRecord,
+  location: Location,
+  redirectedFrom?: ?Location,
+  router?: VueRouter
+): Route {
+  const stringifyQuery = router && router.options.stringifyQuery
+
+  let query: any = location.query || {}
+  try {
+    query = clone(query)
+  } catch (e) {}
+
+  const route: Route = {
+    name: location.name || (record && record.name),
+    meta: (record && record.meta) || {},
+    path: location.path || '/',
+    hash: location.hash || '',
+    query,
+    params: location.params || {},
+    fullPath: getFullPath(location, stringifyQuery),
+    matched: record ? formatMatch(record) : []
+  }
+  if (redirectedFrom) {
+    route.redirectedFrom = getFullPath(redirectedFrom, stringifyQuery)
+  }
+  return Object.freeze(route)
+}
+```
+
+首先看一下返回`Object.freeze(route)`
+
+> Object.freeze() 方法可以冻结一个对象。一个被冻结的对象再也不能被修改；冻结了一个对象则不能向这个对象添加新的属性，不能删除已有属性，不能修改该对象已有属性的可枚举性、可配置性、可写性，以及不能修改已有属性的值。此外，冻结一个对象后该对象的原型也不能被修改。freeze() 返回和传入的参数相同的对象
+
 ### addRoute
 
-### getRoutes
+```
+function addRoutes (routes) {
+createRouteMap(routes, pathList, pathMap, nameMap)
+}
+// src\create-route-map.js
+export function createRouteMap(
+  routes: Array<RouteConfig>,
+  oldPathList?: Array<string>,
+  oldPathMap?: Dictionary<RouteRecord>,
+  oldNameMap?: Dictionary<RouteRecord>,
+  parentRoute?: RouteRecord
+): {
+  pathList: Array<string>,
+  pathMap: Dictionary<RouteRecord>,
+  nameMap: Dictionary<RouteRecord>,
+} {
+  const pathList: Array<string> = oldPathList || []
+  const pathMap: Dictionary<RouteRecord> = oldPathMap || Object.create(null)
+  const nameMap: Dictionary<RouteRecord> = oldNameMap || Object.create(null)
+
+  routes.forEach((route) => {
+    addRouteRecord(pathList, pathMap, nameMap, route, parentRoute)
+  })
+
+  // ensure wildcard routes are always at the end
+  for (let i = 0, l = pathList.length; i < l; i++) {
+    if (pathList[i] === '*') {
+      pathList.push(pathList.splice(i, 1)[0])
+      l--
+      i--
+    }
+  }
+
+  return {
+    pathList,
+    pathMap,
+    nameMap,
+  }
+}
+```
+
+直接调用了`createRouteMap`，可以看到这些东西，都是很熟悉得，所以`addRoutes`得主要功能就是，调用了`addRouteRecord`,创建了一个新的`routeRecord`，之后，可以在`pathList`,`pathMap`,甚至在`nameMap`能找到这个新的`route`
