@@ -574,9 +574,22 @@ function resetStoreVM (store, state, hot) {
       enumerable: true // for local getters
     })
   })
+export function partial (fn, arg) {
+  return function () {
+    return fn(arg)
+  }
+}
+store._wrappedGetters[type] = function wrappedGetter (store) {
+  return rawGetter(
+    local.state, // local state
+    local.getters, // local getters
+    store.state, // root state
+    store.getters // root getters
+  )
+}
 ```
 
-再这里`fn`
+`partial`再这里就是执行了`fn(store)`,相当于执行了`wrappedGetter`，返回了`rawGetter`，这个`rawGetter`就是定义的`getter`函数
 
 我们可以看到这里，引入了`vue`的实例:
 
@@ -588,3 +601,20 @@ store._vm = new Vue({
     computed
   })
 ```
+
+这里定义了一个`data`定义了`$$state`属性，而我们访问`store.state`，实际上会访问`Store`类上定义的`state`的`get`方法
+
+```
+get state () {
+  return this._vm._data.$$state
+}
+ forEachValue(wrappedGetters, (fn, key) => {
+    computed[key] = partial(fn, store)
+    Object.defineProperty(store.getters, key, {
+      get: () => store._vm[key],
+      enumerable: true // for local getters
+    })
+  })
+```
+
+通过`object.defineProperty`,将`store.getters`
