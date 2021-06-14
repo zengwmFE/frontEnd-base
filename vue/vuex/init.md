@@ -617,4 +617,4 @@ get state () {
   })
 ```
 
-通过`object.defineProperty`,将`store.getters`
+通过`object.defineProperty`,将`store.getters`与`store._vm`连接一起，所以当我们使用`this.store.getters`来获取一个值时，事实上时通过`store._vm[key]`来获取`store`里面的值的
