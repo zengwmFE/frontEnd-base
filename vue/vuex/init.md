@@ -617,4 +617,69 @@ get state () {
   })
 ```
 
-通过`object.defineProperty`,将`store.getters`与`store._vm`连接一起，所以当我们使用`this.store.getters`来获取一个值时，事实上时通过`store._vm[key]`来获取`store`里面的值的
+通过`object.defineProperty`,将`store.getters`和`store._vm[key]`连接起来，当我们通过`this.$store.getters`这样的去访问`getters`里面的值的时候,就会访问`store._vm`里面的内容，同时当`store._vm`改变的时候，访问`store.getters`的值会相应发生改变。之前说到`wrappedGetters`是用户自己设置的`getters`值
+
+```
+function registerGetter (store, type, rawGetter, local) {
+  store._wrappedGetters[type] = function wrappedGetter (store) {
+    return rawGetter(
+      local.state, // local state
+      local.getters, // local getters
+      store.state, // root state
+      store.getters // root getters
+    )
+  }
+}
+
+```
+
+也就是说，当我们执行`store._wrappedGetters`是，也就相当于执行了`wrappedGetter`，也就是`rawGetter`,也就是会通过用户定义的**回调函数**，来调用了`store.state`里面的`state`
+
+```
+get state () {
+    return this._vm._data.$$state
+  }
+```
+
+所以可以看到最后访问的`this._vm._data.$$state`，也就是`state`.
+
+---
+
+继续往下走:
+
+```
+ if (store.strict) {
+    enableStrictMode(store)
+  }
+```
+
+判断了`store`的`strict`属性，
+
+> store 设置`strict`为`trur`,使 `Vuex store` 进入严格模式，在严格模式下，任何 `mutation` 处理函数以外修改 `Vuex state` 都会抛出错误。
+
+```
+function enableStrictMode (store) {
+  store._vm.$watch(function () { return this._data.$$state }, () => {
+    if (__DEV__) {
+      assert(store._committing, `do not mutate vuex store state outside mutation handlers.`)
+    }
+  }, { deep: true, sync: true })
+}
+```
+
+他会开启再`store._vm`增加了一个`watcher`来观测`this._data.$$state`,当`state`被改变的时候，就会在开发环境，判断`store._commiting`是否是`true`来弹出错误。
+
+```
+_withCommit (fn) {
+    const committing = this._committing
+    this._committing = true
+    fn()
+    this._committing = committing
+  }
+```
+
+这个方法实际上就是，就是设置了`this._committing = true`，不过可以看到这个方法在`commit`,`replaceState`能操作`state`都增加了这个方法，当然没有通过这些方法，或者没有走能够让`this._committing`变为`true`的路，那么就会报错。
+
+### 总结
+
+我们要把 store 想象成一个数据仓库，为了更方便的管理仓库，我们把一个大的`store`拆成一些`modules`，整个 `modules`是一个树型结构。每个`module`又分别定义了`state，getters，mutations、actions`，我们也通过递归遍历模块的方式都完成了它们的初始化。为了`module`具有更高的封装度和复用性，还定义了`namespace`的概念。最后我们还定义了一个内部的`Vue`实例，用来建立`state`到`getters`的联系，并且可以在严格模式(`strict`)下监测`state`的变化是不是来自外部，确保改变`state`的唯一途径就是显式地提交`mutation`
