@@ -378,6 +378,67 @@ function match (
     return _createRoute(null, location)
   }
 ```
+首先可以看到调用了`normalizeLocation`,获取了路由的name，如果这个路由的`name`不存在就判断`location.path`
+首先他在`nameMap`里面去获取了当前路由的记录，如果不存在那么就会创建一个为null的路径，反之则去获取`record`对应的`paramsNames`，再对比当前传入的`currentParams`
+
+1. 判断key在location.params中的，同时paramsName中包含`key`的，就会将满足条件currentRoute的params覆盖到location中params
+2. 然后调用fillParams方法根据`record.path`,`location.params`,去得到location.path,最后调用`_createRoute`创建一个新的路由,我们知道nameMap里面的name是固定的，没有就没有，存在就一定是单独的，但是，在pathMap中不一样，我们知道在pathMap中的`record`的path很有可能是含有参数的，因此要进行匹配，去找匹配的path通过fillParams，得到路径`location.path`,然后调用`_createRoute`创建一个新的路由
+
+我们可以发现这里频繁的调用了`_createRoute`：
+路径为：`vue-router/src/create-matcher.js`
+```
+ function _createRoute (
+    record: ?RouteRecord,
+    location: Location,
+    redirectedFrom?: Location
+  ): Route {
+    if (record && record.redirect) {
+      return redirect(record, redirectedFrom || location)
+    }
+    if (record && record.matchAs) {
+      return alias(record, location, record.matchAs)
+    }
+    return createRoute(record, location, redirectedFrom, router)
+  }
+```
+可以看到这里根据`record`的属性分成了3种：
+
+1. redirect 对应了配置中的redirect
+2. alias 对应了配置中的alias
+3. createRoute这是正常会走的
+
+那么就按照最常见的逻辑来看看`createRoute`：
+
+```
+export function createRoute (
+  record: ?RouteRecord,
+  location: Location,
+  redirectedFrom?: ?Location,
+  router?: VueRouter
+): Route {
+  const stringifyQuery = router && router.options.stringifyQuery
+
+  let query: any = location.query || {}
+  try {
+    query = clone(query)
+  } catch (e) {}
+
+  const route: Route = {
+    name: location.name || (record && record.name),
+    meta: (record && record.meta) || {},
+    path: location.path || '/',
+    hash: location.hash || '',
+    query,
+    params: location.params || {},
+    fullPath: getFullPath(location, stringifyQuery),
+    matched: record ? formatMatch(record) : []
+  }
+  if (redirectedFrom) {
+    route.redirectedFrom = getFullPath(redirectedFrom, stringifyQuery)
+  }
+  return Object.freeze(route)
+}
+```
 
 `match`接收 3 个参数:`raw:rawLocation`,`currentRoute:route`,`redirectedFrom:location`，可以知道`raw`是一个`rawLocation`,`currentRoute`代表是当前得路由
 返回值是一个`route`对象
