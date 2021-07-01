@@ -1,12 +1,15 @@
-var fs = require('fs')
-
 setTimeout(() => {
-  console.log('settimeout1')
-}, 30000)
+  console.log('timeout')
+})
+new Promise((resolve) => {
+  resolve(1)
+}).then((res) => {
+  console.log(res)
+})
 
-fs.readFile('input.txt', function (err, data) {
-  if (err) {
-    return console.error(err)
-  }
-  console.log('异步读取: ' + data.toString())
+setImmediate(() => {
+  console.log('immediate')
+})
+process.nextTick(() => {
+  console.log('nextTick')
 })
