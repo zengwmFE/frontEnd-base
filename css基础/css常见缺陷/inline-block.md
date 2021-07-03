@@ -39,7 +39,7 @@
 
 ![](https://github.com/zengwmFE/frontEnd-base/blob/master/image/inline-blockquexian2.png)
 
-1. 将`display: inline-block`改成`float: left;`;
+2. 将`display: inline-block`改成`float: left;`;
 
 ```
  .inner {
