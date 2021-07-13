@@ -1,24 +1,18 @@
 ## webpack 流程分析
 
-阅读本章的时候，最好要对于`tapable`的知识有所了解，`webpack`使用了大量钩子来实现构建流程
+重要的概念
+1. compiler webpack运行入口，compiler对象代表了完整的webpack环境配置。这个对象在启动webpack时被一次性建立，并配置好所有可操作的设置，包含`options`,`loader`,`plugin`。当在webpack环境中应用一个插件时，插件将受到此`compiler`对象的应用，可以使用它来访问`webpack`的主环境（这样就能通过compiler来自定义plugin）
 
-### 1. 项目入口文件
+2. compilation对象代表了一次资源版本构建，当运行`webpack`开发环境中间件时，每当检测到一个文件变化，就会创建一个新的`compilation`，从而生成一组新的编译资源，一个`compilation`对象表现了当前的模块资源，编译生成资源，变化的文件以及被跟踪依赖的状态信息，`compilation`对象也提供很多关键步骤的回调，以供插件做自定义处理时使用
 
-**package.json**
+3. chunk 即用于表示`chunk`的类，对于构建时需要的`chunk`对象由`compilation`创建后保存管理（webpack中最核心的负责编译的`Compiler`和创建`bundle`的`compilation`都是继承于`tapable`）
 
-> 在阅读源码的时候，在`package.json`中的`main`字段中可以知道整个库的入口文件是那里
+4. Module 用于表示代码模块的基础类，衍生出很多子类用于处理不同的情况，关羽代码模块的所有信息都会存在`Module`实例中，例如`dependencies`记录代码模块的依赖
 
-**`"main": "lib/index.js"`**
+5. Parser其中相对复杂的一个部分，基于acorn来分析AST语法树，解析出代码模块的依赖
 
-```
-get webpack() {
-		return require("./webpack");
-},
-```
 
-所以真正的入口文件是`lib/webpack.js`
-
-### 2. 初始化 options
+### 1. 初始化 options
 
 ```
 compiler = createCompiler(options);
@@ -106,7 +100,7 @@ compiler.hooks.entryOption.tap("EntryOptionPlugin", (context, entry) => {
 
 结束后调用`compiler.run`，开始启动编译
 
-### 3. run 执行编译
+### 2. run 执行编译
 
 ```
 const run = () => {
@@ -173,7 +167,7 @@ beforeCompile->compile->make->finishMake->finish->seal->afterCompile
 
 这里的`newCompilationParams`是非常重要的，它返回了两个工厂函数的实例化对象:`NormalModuleFactory`和`ContextMouduleFactory`;以及调用了`this.newCompilation`，全局查找之后，我们可以知道，`hook.thisCompilation`以及`hooks.compilation`都是在每一个`plugin`的`apply`方法下进行了注册，所以这个这个方法是通知每个相关插件在`make`前阶段需要做的操作，然后得到了一个`compilation`的新实例以便接下来触发的所有钩子都能使用到这个实例
 
-### 4. make 依赖分析
+### 3. make 依赖分析
 
 在这里对`make`这个主要的流程进行分析，但是这个`make`在这里仅仅是一个触发的地方，需要在`webpack`找到它注册的位置。
 首先我们来看看，一个基本的`tapable`是如何执行的
@@ -388,7 +382,7 @@ factorizeModule->_factorizeModule->
 factory.create
 ```
 
-### 5. buildModule
+### 4. buildModule
 
 在`factory`以及获取到了依赖所转换的模块，接下来要进行构建模块
 
@@ -582,7 +576,7 @@ err => {
 
 等到模块构建完，并分析完依赖之后，执行`this.hooks.succeedModule.call(module);`
 
-### 6. seal chunks 的创建和优化
+### 5. seal chunks 的创建和优化
 
 紧接着执行`complation.seal`
 
@@ -670,7 +664,7 @@ err => {
 
 到这里我们构建需要的`chunks`和`modules`都成功构建好了,接下来就进入**文件输出**
 
-### 7. hash 生成及文件输出
+### 6. hash 生成及文件输出
 
 首先进行文件`hash`的创建:`createHash`
 紧接着进行文件的生成，

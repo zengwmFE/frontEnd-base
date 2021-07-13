@@ -4,25 +4,40 @@
  * 如果在此期间又触发了这个事件，那么以新的事件为主
  * 可以扩展
  */
+// debounce hooks
 
+function useDebounce(fn, delay, deep = []) {
+  const { current } = useRef({ fn, timer: null })
+  useEffect(() => {
+    current.fn = fn
+  }, [fn])
+  return useCallback(function f(...args) {
+    if (current.timer) clearTimeout(current.timer)
+    current.timer = setTimeout(() => {
+      current.fn.call(this, ...args)
+    }, delay)
+  }, deep)
+}
+
+// js
 function debounce(fn, wait, imm = false) {
-  let timer = null;
+  let timer = null
   return function () {
-    let context = this;
-    let arg = arguments;
-    let ret = "";
-    if (timer) clearTimeout(timer); // 重新即时
+    let context = this
+    let arg = arguments
+    let ret = ''
+    if (timer) clearTimeout(timer) // 重新即时
     if (imm) {
-      var callnow = !timer;
+      var callnow = !timer
       timer = setTimeout(function () {
-        timer = null;
-      }, wait);
-      if (callnow) ret = fn.apply(context, arguments);
+        timer = null
+      }, wait)
+      if (callnow) ret = fn.apply(context, arguments)
     } else {
       setTimeout(() => {
-        fn.apply(context, arguments);
-      }, wait);
+        fn.apply(context, arguments)
+      }, wait)
     }
-    return ret;
-  };
+    return ret
+  }
 }
