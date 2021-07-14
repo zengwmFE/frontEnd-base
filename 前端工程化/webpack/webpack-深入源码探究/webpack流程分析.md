@@ -1,17 +1,5 @@
 ## webpack 流程分析
 
-重要的概念
-1. compiler webpack运行入口，compiler对象代表了完整的webpack环境配置。这个对象在启动webpack时被一次性建立，并配置好所有可操作的设置，包含`options`,`loader`,`plugin`。当在webpack环境中应用一个插件时，插件将受到此`compiler`对象的应用，可以使用它来访问`webpack`的主环境（这样就能通过compiler来自定义plugin）
-
-2. compilation对象代表了一次资源版本构建，当运行`webpack`开发环境中间件时，每当检测到一个文件变化，就会创建一个新的`compilation`，从而生成一组新的编译资源，一个`compilation`对象表现了当前的模块资源，编译生成资源，变化的文件以及被跟踪依赖的状态信息，`compilation`对象也提供很多关键步骤的回调，以供插件做自定义处理时使用
-
-3. chunk 即用于表示`chunk`的类，对于构建时需要的`chunk`对象由`compilation`创建后保存管理（webpack中最核心的负责编译的`Compiler`和创建`bundle`的`compilation`都是继承于`tapable`）
-
-4. Module 用于表示代码模块的基础类，衍生出很多子类用于处理不同的情况，关羽代码模块的所有信息都会存在`Module`实例中，例如`dependencies`记录代码模块的依赖
-
-5. Parser其中相对复杂的一个部分，基于acorn来分析AST语法树，解析出代码模块的依赖
-
-
 ### 1. 初始化 options
 
 ```
