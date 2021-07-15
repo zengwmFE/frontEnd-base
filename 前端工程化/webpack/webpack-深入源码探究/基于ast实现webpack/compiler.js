@@ -47,12 +47,13 @@ class Compiler {
           exports: {}
         }
         module.call(module.exports,modules,module.exports,__require__)
-        return modules
+        return module.exports
       }
       __require__(${this.entry})
     })
     
     `
+    fs.writeFile(output,bundle)
   } // 输出文件
 }
 
