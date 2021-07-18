@@ -31,3 +31,11 @@ export default function(api,options,dirname){
 }
 ```
 解析：
+1. options就是外部传入的参数
+2. dirname文件名
+3. api包含了babel各种api,template,type
+返回的对象有`inherits`,`manipulateOptions`,`pre`,`visitor`,`post`
+1. inherits指定继承某个插件，和当前的options进行合并，通过Object.assign的方式
+2. visitor指定traverse时调用的函数
+3. pre和post分别在遍历前后调用，可以做插件调用前后的逻辑
+4. manipulateOptions用于修改options.是在插件里面修改配置的方式，比如`syntax plugin`一般都会修改parser options
