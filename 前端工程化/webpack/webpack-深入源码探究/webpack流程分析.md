@@ -1,8 +1,11 @@
 ## webpack 流程分析
 
 ### 执行webpack
-
-> webpack->package.json
+大致流程总结
+> webpack->package.json->bin->检查cli是否安装->webpack-cli->检查webpack是否安装
+> bootstrap.js->检查基础配置是否正常->挂上一些初期的钩子->webpack-cli->run
+> ->createCompiler->this.webpack(options)创建一个compiler出来->index.js->webpack->new Compiler->
+> 遍历options下面的plugins->调用plugin.call(compiler,compiler)->调用了compiler.run方法->new Compilation()得到compilation->执行run钩子->执行compilation的`buildModule`编译入口文件->通过acorn将文件内容转换成AST，然后通过AST获取到对应的sourceCode和依赖dependecies（Module）->然后循环执行获取到的dependencies,根据dependencies去获取对应的`modules`->然后构建template,输出到文件内
 
 ### 1. 初始化 options
 
@@ -16,9 +19,6 @@ watchOptions = options.watchOptions || {};
 const createCompiler = rawOptions => {
     const compiler = new Compiler(options.context);
     compiler.options = options;
-    new NodeEnvironmentPlugin({
-        infrastructureLogging: options.infrastructureLogging
-    }).apply(compiler);
     // 执行plugin
     if (Array.isArray(options.plugins)) {
         for (const plugin of options.plugins) {
@@ -29,9 +29,6 @@ const createCompiler = rawOptions => {
             }
         }
     }
-    applyWebpackOptionsDefaults(options);
-    compiler.hooks.environment.call();
-    compiler.hooks.afterEnvironment.call();
     new WebpackOptionsApply().process(options, compiler);
     compiler.hooks.initialize.call();
     return compiler;
@@ -40,9 +37,8 @@ const createCompiler = rawOptions => {
 
 在这里 `createCompiler` 做了：
 
-1. 执行了`NodeEnvironmentPlugin`,触发了`beforeRun`钩子，清除了磁盘
-2. 将`options`内的`plugin`内的所有的事件流都绑定到`webpack`事件流上
-3. `WebpackOptionsApply`将所有的配置的`options`参数都转换成合适的`webpack`内部插件,如：
+1. 将`options`内的`plugin`内的`apply`都绑定到`webpack`事件流上
+2. `WebpackOptionsApply`将所有的配置的`options`参数都转换成合适的`webpack`内部插件,如：
 
 > externals 转换成：ExternalsPlugin splitChunks 转换成：SplitChunksPlugin
 
@@ -94,7 +90,7 @@ compiler.hooks.entryOption.tap("EntryOptionPlugin", (context, entry) => {
 
 4. 初始化`compiler`
 
-结束后调用 `compiler.run` ，开始启动编译
+createCompiler结束后调用 `compiler.run` ，开始启动编译
 
 ### 2. run 执行编译
 
@@ -111,8 +107,8 @@ const run = () => {
 ```
 
 1. 在这里触发`beforeRun`钩子的触发，
-2. 触发`run`钩子，最后执行`this.compile(onCompiled)`，这里是一切的源头，一切“罪恶”的根源 🐶，在这里贴上源码：
-
+2. 触发`run`钩子，最后执行`this.compile(onCompiled)`，这里是一切的源头，一切“罪恶”的根源💊，在这里贴上源码：
+3. 在这里调用了`createCompilation`，创建了`compilation`
 ```javascript
 newCompilation(params) {
     const compilation = this.createCompilation();
@@ -121,6 +117,10 @@ newCompilation(params) {
     this.hooks.thisCompilation.call(compilation, params);
     this.hooks.compilation.call(compilation, params);
     return compilation;
+}
+createCompilation() {
+		this._cleanupLastCompilation();
+		return (this._lastCompilation = new Compilation(this));
 }
 newCompilationParams() {
     const params = {

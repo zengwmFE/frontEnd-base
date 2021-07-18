@@ -4,8 +4,9 @@
 
 `Tapable` 的核心
 
-1. 负责编译的`Compiler`
-2. 负责创建`bundles`的`complation`
+1. 负责编译的`Compiler`,compiler对象代表了完整的webpack环境配置。这个对象在启动webpack的时候，被一次性创建，并配置好所有可以操作的设置,包括`options`,`loader`和`plugin`，当在webpack环境中应用一个插件时，插件将收到此compiler对象的引用，可以使用他来访问webpack的主环境
+2. 负责创建`bundles`的`complation`，compilation对象代表了一次资源版本的构建，当运行webpack开发环境中间件时，每当检测到一个文件变化，就会创建新的compilation,从而生成一组新的编译资源。一个compilation对象表现了当前模块资源、编译生成资源，变化的文件，以及被跟踪依赖的状态信息。compilation对象也提供了很多关键步骤的回调，以供插件做自定义处理时选择使用
+
 
 ```javascript
 const {
