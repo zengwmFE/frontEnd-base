@@ -1,5 +1,5 @@
 ### keep-alive 的官方文档
-
+keep-alive保存的是`vnode`，利用LRU缓存的方法
 - Props
   - include 字符串或正则表达式，只有名称匹配的组件会被匹配
   - exclude 字符串或正则表达式。任何名称匹配的组件都不会被缓存。
